@@ -1,9 +1,9 @@
 (() => {
     'use strict';
     module.exports = class {
-        constructor(routes) {
-            // when initialized set the routes if defined
-            this.routes = routes || {};
+        constructor() {
+            // placeholder for routes defined when extended
+            this.routes = {};
         }
         initialize() {
             // set up the events

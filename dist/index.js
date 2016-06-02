@@ -41,11 +41,11 @@
         'use strict';
 
         module.exports = function () {
-            function _class(routes) {
+            function _class() {
                 _classCallCheck(this, _class);
 
-                // when initialized set the routes if defined
-                this.routes = routes || {};
+                // placeholder for routes defined when extended
+                this.routes = {};
             }
 
             _createClass(_class, [{
