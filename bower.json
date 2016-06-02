@@ -1,0 +1,26 @@
+{
+  "name": "white-label-router",
+  "description": "A simple ES6 JS router.",
+  "main": "dist/index.js",
+  "authors": [
+    "bshack"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "javascript",
+    "js",
+    "router",
+    "es6",
+    "es2015",
+    "delegate"
+  ],
+  "homepage": "https://github.com/bshack/white-label-router",
+  "moduleType": [
+    "amd"
+  ],
+  "ignore": [
+    "**/.*",
+    "node_modules"
+  ],
+  "version": "1.0.0"
+}
