@@ -26,8 +26,8 @@
             if (this.routes[hashCleanedString]) {
                 this.routes[hashCleanedString]();
             // else if a catch all default route is defined execute that
-            } else if (this.routes.default) {
-                this.routes.default();
+            } else if (this.routes.defaultRoute) {
+                this.routes.defaultRoute();
             }
             // if there is a callback defined call it with he current hash value
             if (callback) {
