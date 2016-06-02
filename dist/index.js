@@ -44,13 +44,16 @@
             function _class(routes) {
                 _classCallCheck(this, _class);
 
+                // when initialized set the routes if defined
                 this.routes = routes || {};
             }
 
             _createClass(_class, [{
                 key: 'initialize',
                 value: function initialize() {
+                    // set up the events
                     this.addListeners();
+                    // check to see if any logic is associated with the current hash
                     this.checkRoute();
                     return this;
                 }
@@ -59,6 +62,7 @@
                 value: function addListeners() {
                     var _this = this;
 
+                    // on hash change check to see if there is any defined logic for it
                     window.addEventListener('hashchange', function (e) {
                         _this.checkRoute();
                     });
@@ -67,10 +71,16 @@
             }, {
                 key: 'checkRoute',
                 value: function checkRoute(callback) {
+                    // what is the current hash value?
                     var hashCleanedString = window.location.hash.substr(1);
+                    // if that route is defined then execute it
                     if (this.routes[hashCleanedString]) {
                         this.routes[hashCleanedString]();
-                    }
+                        // else if a catch all default route is defined execute that
+                    } else if (this.routes.default) {
+                            this.routes.default();
+                        }
+                    // if there is a callback defined call it with he current hash value
                     if (callback) {
                         callback(hashCleanedString);
                     }
