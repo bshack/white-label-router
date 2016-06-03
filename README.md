@@ -55,7 +55,7 @@ const MyRoute = class extends Router {
 ```
 const myRouter = new MyRouter();
 
-myRouter.someGreatFeature();
+myRouter.initialize();
 ```
 
 ## Let's look at an example:
