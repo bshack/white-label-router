@@ -48,11 +48,6 @@ At instantiation you set the routes:
 //demo.js
 
 import Router from 'white-label-router';
-import ViewDemoIndex from '../view/demo/index.js';
-import ViewDemoPage2 from '../view/demo/page2.js';
-
-const viewDemoIndex = new ViewDemoIndex();
-const viewDemoPage2 = new ViewDemoPage2();
 
 module.exports = class extends Router {
     // this is the constructor. This executed whenever the view is instantiated.
@@ -61,12 +56,10 @@ module.exports = class extends Router {
         super();
         this.routes = {
             defaultRoute: () => {
-                viewDemoPage2.destroy();
-                viewDemoIndex.initialize();
+                window.console.log('the defaultRoute executed');
             },
             page2: () => {
-                viewDemoIndex.destroy();
-                viewDemoPage2.initialize();
+                window.console.log('the page2 route executed');
             }
         };
     }
