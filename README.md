@@ -20,12 +20,32 @@ npm install white-label-router --save
 import Router from 'white-label-router';
 ```
 
-## Extend
+## Extending 
 
 ```
 const MyRouter = class extends Router {
     someGreatFeature() {
         console.log('this is great!');
+    }
+};
+```
+
+## Defining Routes
+
+```
+const MyRoute = class extends Router {
+    constructor() {
+        super();
+        this.routes = {
+            defaultRoute: () => {
+                //here you would put any view specific logic for the defaultRoute
+                window.console.log('the defaultRoute executed');
+            },
+            page2: () => {
+                //here you would put any view specific logic for the page2 route
+                window.console.log('the page2 route executed');
+            }
+        };
     }
 };
 ```
