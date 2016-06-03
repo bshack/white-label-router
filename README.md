@@ -58,7 +58,7 @@ const myRouter = new MyRouter();
 myRouter.someGreatFeature();
 ```
 
-## Adding routes complete example
+## Let's look at an example:
 
 import the module
 
