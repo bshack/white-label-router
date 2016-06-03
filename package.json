@@ -7,9 +7,6 @@
       "node":">=4.0",
       "npm":">=2.0"
    },
-   "scripts":{
-      "test":"echo \"Error: no test specified\" && exit 1"
-   },
    "repository":{
       "type":"git",
       "url":"git+https://github.com/bshack/white-label-router.git"
