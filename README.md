@@ -75,8 +75,9 @@ module.exports = class extends Router {
 
 In the example above we have set up two routes. The first route 'defaultRoute' is
 a catch all route. If no other routes match the current hash this is the route that
-will be executed. The second route 'page2' will be executed when the hash matches
-exactly 'page2'.
+will be executed. In this example the defaultRoute would execute for 'http://example.com' or 'http://example.com/#home' but not 'http://example.com/#page2'.
+
+The second route 'page2' will only be executed when the hash matches exactly 'page2', or example 'http://example.com/#page2'.
 
 Next you would just require it another script file and initialize it:
 
