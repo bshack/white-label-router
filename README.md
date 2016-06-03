@@ -56,9 +56,11 @@ module.exports = class extends Router {
         super();
         this.routes = {
             defaultRoute: () => {
+                //here you would put any view specific logic for the defaultRoute
                 window.console.log('the defaultRoute executed');
             },
             page2: () => {
+                //here you would put any view specific logic for the page2 route
                 window.console.log('the page2 route executed');
             }
         };
