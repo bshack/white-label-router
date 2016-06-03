@@ -14,7 +14,7 @@
         }
         addListeners() {
             // on hash change check to see if there is any defined logic for it
-            window.addEventListener('hashchange', (e) => {
+            window.addEventListener('hashchange', () => {
                 this.checkRoute();
             });
             return this;
@@ -36,6 +36,9 @@
             return this;
         }
         destroy() {
+            return this;
+        }
+        removeListeners() {
             return this;
         }
         render() {

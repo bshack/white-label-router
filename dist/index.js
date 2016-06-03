@@ -63,7 +63,7 @@
                     var _this = this;
 
                     // on hash change check to see if there is any defined logic for it
-                    window.addEventListener('hashchange', function (e) {
+                    window.addEventListener('hashchange', function () {
                         _this.checkRoute();
                     });
                     return this;
@@ -89,6 +89,11 @@
             }, {
                 key: 'destroy',
                 value: function destroy() {
+                    return this;
+                }
+            }, {
+                key: 'removeListeners',
+                value: function removeListeners() {
                     return this;
                 }
             }, {
