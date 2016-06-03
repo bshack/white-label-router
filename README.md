@@ -40,13 +40,13 @@ myRouter.someGreatFeature();
 
 ## Adding routes complete example
 
-import the module:
+import the module
 
 ```
 import Router from 'white-label-router';
 ```
 
-extend the base router
+extend the router
 
 ```
 const MyRoute = class extends Router {
@@ -69,13 +69,13 @@ const MyRoute = class extends Router {
 
 ```
 
-instantiate the router
+instantiate your router
 
 ```
 const myRoute = new MyRoute();
 ```
 
-initialize the router
+initialize your router
 
 ```
 myRoute.initialize();
