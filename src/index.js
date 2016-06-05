@@ -51,7 +51,7 @@ import Gator from 'gator';
         }
         navigate(url) {
             if (url) {
-                this.url = (url || '');
+                this.url = url;
             }
             // if that route is defined then execute it
             if (this.routes[this.url]) {
