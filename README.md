@@ -52,7 +52,7 @@ const MyRoute = class extends Router {
 
 ## HTML Linking To Routes
 
-you can make any anchor tigger a specified route by simply setting the href attribute to you route path and add the attribute 'data-pushstate'.
+you can make any anchor tigger a specified route by simply setting the href attribute to your route path and adding the attribute 'data-pushstate'.
 
 ```
 <a href="/page2" data-pushstate>take me to page2</a>
@@ -117,6 +117,6 @@ initialize your router
 myRoute.initialize();
 ```
 
-In the example above we have set up two routes. The first route 'defaultRoute' is a catch all route. If no other routes match the specified url path this is the route that will be executed. In this example the defaultRoute would be executed for 'http://example.com' or 'http://example.com/home' but not 'http://example.com/page2'.
+In the example above we have set up two routes. The first route 'defaultRoute' is a catch all route. If no other routes match the specified url path this is the route that will be executed. In this example the defaultRoute would be executed for 'http://example.com' or 'http://example.com/home', but not 'http://example.com/page2'.
 
-The second route 'page2' will only be executed when the specified url path matches exactly 'page2', or for example 'http://example.com/page2'.
+The second defined route 'page2' will only be executed when the specified url path matches exactly '/page2', or for example 'http://example.com/page2'.
