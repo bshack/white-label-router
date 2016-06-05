@@ -24,7 +24,7 @@ import Gator from 'gator';
             return this;
         }
         addListeners() {
-            //bind ot all pushstate links
+            //bind all pushstate links
             Gator(document).on(
                 'click',
                 '[data-pushstate]',
@@ -67,9 +67,17 @@ import Gator from 'gator';
             return this;
         }
         removeListeners() {
-            return this;
-        }
-        render() {
+            //unbind all pushstate links
+            Gator(document).off(
+                'click',
+                '[data-pushstate]'
+            );
+            //bind window popstates
+            window
+                .removeEventListener(
+                    'popstate',
+                    this.eventPopState.bind(this)
+                );
             return this;
         }
     };

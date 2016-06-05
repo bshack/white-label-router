@@ -78,7 +78,7 @@
             }, {
                 key: 'addListeners',
                 value: function addListeners() {
-                    //bind ot all pushstate links
+                    //bind all pushstate links
                     (0, _gator2.default)(document).on('click', '[data-pushstate]', this.eventPushStateClick.bind(this));
                     //bind window popstates
                     window.addEventListener('popstate', this.eventPopState.bind(this));
@@ -103,7 +103,7 @@
                 key: 'navigate',
                 value: function navigate(url) {
                     if (url) {
-                        this.url = url || '';
+                        this.url = url;
                     }
                     // if that route is defined then execute it
                     if (this.routes[this.url]) {
@@ -123,11 +123,10 @@
             }, {
                 key: 'removeListeners',
                 value: function removeListeners() {
-                    return this;
-                }
-            }, {
-                key: 'render',
-                value: function render() {
+                    //unbind all pushstate links
+                    (0, _gator2.default)(document).off('click', '[data-pushstate]');
+                    //bind window popstates
+                    window.removeEventListener('popstate', this.eventPopState.bind(this));
                     return this;
                 }
             }]);
