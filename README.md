@@ -1,6 +1,6 @@
 # white-label-router
 
-A simple ES6 JS router based on url hashes.
+A simple ES6 JS router based on the history api and pushstate.
 
 Learn more about ES6 classes here:
 
@@ -20,7 +20,7 @@ npm install white-label-router --save
 import Router from 'white-label-router';
 ```
 
-## Extending 
+## Extending
 
 ```
 const MyRouter = class extends Router {
@@ -41,13 +41,29 @@ const MyRoute = class extends Router {
                 //here you would put any view specific logic for the defaultRoute
                 window.console.log('the defaultRoute executed');
             },
-            page2: () => {
+            '/page2': () => {
                 //here you would put any view specific logic for the page2 route
                 window.console.log('the page2 route executed');
             }
         };
     }
 };
+```
+
+## HTML Linking To Routes
+
+you can make any anchor tigger a specified route by simply setting the href attribute to you route path and add the attribute 'data-pushstate'.
+
+```
+<a href="/page2" data-pushstate>take me to page2</a>
+```
+
+## Navigate
+
+you can also trigger navigation to a route with the navigate method
+
+```
+myRouter.navigate('/page2');
 ```
 
 ## Instantiate
@@ -79,7 +95,7 @@ const MyRoute = class extends Router {
                 //here you would put any view specific logic for the defaultRoute
                 window.console.log('the defaultRoute executed');
             },
-            page2: () => {
+            '/page2': () => {
                 //here you would put any view specific logic for the page2 route
                 window.console.log('the page2 route executed');
             }
@@ -101,6 +117,6 @@ initialize your router
 myRoute.initialize();
 ```
 
-In the example above we have set up two routes. The first route 'defaultRoute' is a catch all route. If no other routes match the current hash this is the route that will be executed. In this example the defaultRoute would execute for 'http://example.com' or 'http://example.com/#home' but not 'http://example.com/#page2'.
+In the example above we have set up two routes. The first route 'defaultRoute' is a catch all route. If no other routes match the specified url path this is the route that will be executed. In this example the defaultRoute would be executed for 'http://example.com' or 'http://example.com/home' but not 'http://example.com/page2'.
 
-The second route 'page2' will only be executed when the hash matches exactly 'page2', or for example 'http://example.com/#page2'.
+The second route 'page2' will only be executed when the specified url path matches exactly 'page2', or for example 'http://example.com/page2'.
