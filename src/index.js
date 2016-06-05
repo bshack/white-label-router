@@ -25,11 +25,17 @@ import Gator from 'gator';
         }
         addListeners() {
             //bind ot all pushstate links
-            Gator(document).on('click', '[data-pushstate]',
-                this.eventPushStateClick.bind(this));
+            Gator(document).on(
+                'click',
+                '[data-pushstate]',
+                this.eventPushStateClick.bind(this)
+            );
             //bind window popstates
             window
-                .addEventListener('popstate', this.eventPopState.bind(this));
+                .addEventListener(
+                    'popstate',
+                    this.eventPopState.bind(this)
+                );
             return this;
         }
         eventPushStateClick(e) {
@@ -47,11 +53,6 @@ import Gator from 'gator';
             if (url) {
                 this.url = (url || '');
             }
-            this.runRoute(this.url);
-            window.history.pushState(this.url, null, this.url);
-            return this;
-        }
-        runRoute() {
             // if that route is defined then execute it
             if (this.routes[this.url]) {
                 this.routes[this.url]();
@@ -59,6 +60,7 @@ import Gator from 'gator';
             } else if (this.routes.defaultRoute) {
                 this.routes.defaultRoute();
             }
+            window.history.pushState(this.url, null, this.url);
             return this;
         }
         destroy() {

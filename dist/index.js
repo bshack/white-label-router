@@ -105,13 +105,6 @@
                     if (url) {
                         this.url = url || '';
                     }
-                    this.runRoute(this.url);
-                    window.history.pushState(this.url, null, this.url);
-                    return this;
-                }
-            }, {
-                key: 'runRoute',
-                value: function runRoute() {
                     // if that route is defined then execute it
                     if (this.routes[this.url]) {
                         this.routes[this.url]();
@@ -119,6 +112,7 @@
                     } else if (this.routes.defaultRoute) {
                             this.routes.defaultRoute();
                         }
+                    window.history.pushState(this.url, null, this.url);
                     return this;
                 }
             }, {
