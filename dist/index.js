@@ -50,10 +50,16 @@
 
         module.exports = function () {
             function _class() {
+                var _this = this;
+
                 _classCallCheck(this, _class);
 
                 // placeholder for routes defined when extended
-                this.routes = {};
+                this.routes = {
+                    defaultRoute: function defaultRoute() {
+                        return _this;
+                    }
+                };
                 // this will hold the current url
                 this.url = '';
             }
@@ -65,10 +71,8 @@
                     this.url = window.location.pathname || '';
                     // set up the events
                     this.addListeners();
-                    //add inital url to state
-                    window.history.pushState(this.url, null, this.url);
-                    // check to see if any logic is associated with the current url
-                    this.runRoute(this.url);
+                    // navigate to correct view
+                    this.navigate();
                     return this;
                 }
             }, {
@@ -85,22 +89,22 @@
                 value: function eventPushStateClick(e) {
                     e.preventDefault();
                     this.url = e.target.getAttribute('href') || '';
-                    this.runRoute(this.url);
-                    window.history.pushState(this.url, null, this.url);
+                    this.navigate();
                     return this;
                 }
             }, {
                 key: 'eventPopState',
                 value: function eventPopState(e) {
                     this.url = e.state || '';
-                    this.runRoute(this.url);
-                    window.history.pushState(this.url, null, this.url);
+                    this.navigate();
                     return this;
                 }
             }, {
                 key: 'navigate',
                 value: function navigate(url) {
-                    this.url = url || '';
+                    if (url) {
+                        this.url = url || '';
+                    }
                     this.runRoute(this.url);
                     window.history.pushState(this.url, null, this.url);
                     return this;

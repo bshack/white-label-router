@@ -6,7 +6,11 @@ import Gator from 'gator';
     module.exports = class {
         constructor() {
             // placeholder for routes defined when extended
-            this.routes = {};
+            this.routes = {
+                defaultRoute: () => {
+                    return this;
+                }
+            };
             // this will hold the current url
             this.url = '';
         }
@@ -15,10 +19,8 @@ import Gator from 'gator';
             this.url = (window.location.pathname || '');
             // set up the events
             this.addListeners();
-            //add inital url to state
-            window.history.pushState(this.url, null, this.url);
-            // check to see if any logic is associated with the current url
-            this.runRoute(this.url);
+            // navigate to correct view
+            this.navigate();
             return this;
         }
         addListeners() {
@@ -33,18 +35,18 @@ import Gator from 'gator';
         eventPushStateClick(e) {
             e.preventDefault();
             this.url = e.target.getAttribute('href') || '';
-            this.runRoute(this.url);
-            window.history.pushState(this.url, null, this.url);
+            this.navigate();
             return this;
         }
         eventPopState(e) {
             this.url = (e.state || '');
-            this.runRoute(this.url);
-            window.history.pushState(this.url, null, this.url);
+            this.navigate();
             return this;
         }
         navigate(url) {
-            this.url = (url || '');
+            if (url) {
+                this.url = (url || '');
+            }
             this.runRoute(this.url);
             window.history.pushState(this.url, null, this.url);
             return this;
