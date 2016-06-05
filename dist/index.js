@@ -100,7 +100,7 @@
             }, {
                 key: 'navigate',
                 value: function navigate(url) {
-                    this.url = url;
+                    this.url = url || '';
                     this.runRoute(this.url);
                     window.history.pushState(this.url, null, this.url);
                     return this;
