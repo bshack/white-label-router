@@ -38,13 +38,13 @@ import Gator from 'gator';
             return this;
         }
         eventPopState(e) {
-            this.url = e.state || '';
+            this.url = (e.state || '');
             this.runRoute(this.url);
             window.history.pushState(this.url, null, this.url);
             return this;
         }
         navigate(url) {
-            this.url = url;
+            this.url = (url || '');
             this.runRoute(this.url);
             window.history.pushState(this.url, null, this.url);
             return this;
