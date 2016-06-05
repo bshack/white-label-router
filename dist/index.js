@@ -1,17 +1,25 @@
 (function (global, factory) {
     if (typeof define === "function" && define.amd) {
-        define(['module'], factory);
+        define(['module', 'gator'], factory);
     } else if (typeof exports !== "undefined") {
-        factory(module);
+        factory(module, require('gator'));
     } else {
         var mod = {
             exports: {}
         };
-        factory(mod);
+        factory(mod, global.gator);
         global.index = mod.exports;
     }
-})(this, function (module) {
+})(this, function (module, _gator) {
     'use strict';
+
+    var _gator2 = _interopRequireDefault(_gator);
+
+    function _interopRequireDefault(obj) {
+        return obj && obj.__esModule ? obj : {
+            default: obj
+        };
+    }
 
     function _classCallCheck(instance, Constructor) {
         if (!(instance instanceof Constructor)) {
@@ -46,44 +54,67 @@
 
                 // placeholder for routes defined when extended
                 this.routes = {};
+                // this will hold the current url
+                this.url = '';
             }
 
             _createClass(_class, [{
                 key: 'initialize',
                 value: function initialize() {
+                    //get the url fragment
+                    this.url = window.location.pathname || '';
                     // set up the events
                     this.addListeners();
-                    // check to see if any logic is associated with the current hash
-                    this.checkRoute();
+                    //add inital url to state
+                    window.history.pushState(this.url, null, this.url);
+                    // check to see if any logic is associated with the current url
+                    this.runRoute(this.url);
                     return this;
                 }
             }, {
                 key: 'addListeners',
                 value: function addListeners() {
-                    var _this = this;
-
-                    // on hash change check to see if there is any defined logic for it
-                    window.addEventListener('hashchange', function () {
-                        _this.checkRoute();
-                    });
+                    //bind ot all pushstate links
+                    (0, _gator2.default)(document).on('click', '[data-pushstate]', this.eventPushStateClick.bind(this));
+                    //bind window popstates
+                    window.addEventListener('popstate', this.eventPopState.bind(this));
                     return this;
                 }
             }, {
-                key: 'checkRoute',
-                value: function checkRoute(callback) {
-                    // what is the current hash value?
-                    var hashCleanedString = window.location.hash.substr(1);
+                key: 'eventPushStateClick',
+                value: function eventPushStateClick(e) {
+                    e.preventDefault();
+                    this.url = e.target.getAttribute('href') || '';
+                    this.runRoute(this.url);
+                    window.history.pushState(this.url, null, this.url);
+                    return this;
+                }
+            }, {
+                key: 'eventPopState',
+                value: function eventPopState(e) {
+                    this.url = e.state || '';
+                    this.runRoute(this.url);
+                    window.history.pushState(this.url, null, this.url);
+                    return this;
+                }
+            }, {
+                key: 'navigate',
+                value: function navigate(url) {
+                    this.url = url;
+                    this.runRoute(this.url);
+                    window.history.pushState(this.url, null, this.url);
+                    return this;
+                }
+            }, {
+                key: 'runRoute',
+                value: function runRoute() {
                     // if that route is defined then execute it
-                    if (this.routes[hashCleanedString]) {
-                        this.routes[hashCleanedString]();
+                    if (this.routes[this.url]) {
+                        this.routes[this.url]();
                         // else if a catch all default route is defined execute that
                     } else if (this.routes.defaultRoute) {
                             this.routes.defaultRoute();
                         }
-                    // if there is a callback defined call it with he current hash value
-                    if (callback) {
-                        callback(hashCleanedString);
-                    }
                     return this;
                 }
             }, {
