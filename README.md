@@ -85,7 +85,7 @@ import Router from 'white-label-router';
 extend the router
 
 ```
-const MyRoute = class extends Router {
+const myRouter = class extends Router {
     // this is the constructor. This executed whenever the view is instantiated.
     constructor() {
         // always do this
@@ -108,13 +108,19 @@ const MyRoute = class extends Router {
 instantiate your router
 
 ```
-const myRoute = new MyRoute();
+const myRouter = new MyRoute();
 ```
 
 initialize your router
 
 ```
-myRoute.initialize();
+myRouter.initialize();
+```
+
+navigate to '/page2'
+
+```
+myRouter.navigate('/page2');
 ```
 
 In the example above we have set up two routes. The first route 'defaultRoute' is a catch all route. If no other routes match the specified url path this is the route that will be executed. In this example the defaultRoute would be executed for 'http://example.com' or 'http://example.com/home', but not 'http://example.com/page2'.
