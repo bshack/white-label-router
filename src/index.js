@@ -47,7 +47,7 @@ import Gator from 'gator';
             if (url) {
                 this.url = (url || '');
             }
-            this.runRoute(this.url);
+            this.runRoute();
             window.history.pushState(this.url, null, this.url);
             return this;
         }
