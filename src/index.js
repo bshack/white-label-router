@@ -64,6 +64,7 @@ import Gator from 'gator';
             return this;
         }
         destroy() {
+            this.removeListeners();
             return this;
         }
         removeListeners() {

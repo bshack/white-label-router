@@ -118,6 +118,7 @@
             }, {
                 key: 'destroy',
                 value: function destroy() {
+                    this.removeListeners();
                     return this;
                 }
             }, {
