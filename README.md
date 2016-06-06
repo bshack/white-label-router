@@ -50,6 +50,14 @@ const MyRoute = class extends Router {
 };
 ```
 
+## Instantiate
+
+```
+const myRouter = new MyRouter();
+
+myRouter.initialize();
+```
+
 ## HTML Linking To Routes
 
 you can make any anchor tigger a specified route by simply setting the href attribute to your route path and adding the attribute 'data-pushstate'.
@@ -64,14 +72,6 @@ you can also trigger navigation to a route with the navigate method
 
 ```
 myRouter.navigate('/page2');
-```
-
-## Instantiate
-
-```
-const myRouter = new MyRouter();
-
-myRouter.initialize();
 ```
 
 ## Let's look at an example:
