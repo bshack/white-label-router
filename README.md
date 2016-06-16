@@ -37,11 +37,11 @@ const MyRoute = class extends Router {
     constructor() {
         super();
         this.routes = {
-            defaultRoute: () => {
+            defaultRoute: (locationData) => {
                 //here you would put any view specific logic for the defaultRoute
                 window.console.log('the defaultRoute executed');
             },
-            '/page2': () => {
+            '/page2': (locationData) => {
                 //here you would put any view specific logic for the page2 route
                 window.console.log('the page2 route executed');
             }
@@ -49,6 +49,10 @@ const MyRoute = class extends Router {
     }
 };
 ```
+
+When a route is executed location data is passed if you need do additional logic around the url. It will include the full url and an array of data created from the path name.
+
+NOTE: routes are matched by checking if the path name string starts with the route. For the example above the route '/page2' would be executed for both path names '/page2' and '/page23/232'.
 
 ## Instantiate
 
@@ -91,11 +95,11 @@ const myRouter = class extends Router {
         // always do this
         super();
         this.routes = {
-            defaultRoute: () => {
+            defaultRoute: (locationData) => {
                 //here you would put any view specific logic for the defaultRoute
                 window.console.log('the defaultRoute executed');
             },
-            '/page2': () => {
+            '/page2': (locationData) => {
                 //here you would put any view specific logic for the page2 route
                 window.console.log('the page2 route executed');
             }
@@ -125,4 +129,4 @@ myRouter.navigate('/page2');
 
 In the example above we have set up two routes. The first route 'defaultRoute' is a catch all route. If no other routes match the specified url path this is the route that will be executed. In this example the defaultRoute would be executed for 'http://example.com' or 'http://example.com/home', but not 'http://example.com/page2'.
 
-The second defined route 'page2' will only be executed when the specified url path matches exactly '/page2', or for example 'http://example.com/page2'.
+The second defined route 'page2' will only be executed when the specified url path starts with '/page2', or for example 'http://example.com/page2'.

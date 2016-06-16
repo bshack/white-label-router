@@ -1,6 +1,6 @@
 {
   "name": "white-label-router",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "A simple ES6 JS router",
   "main": "dist/index.js",
   "engines": {
