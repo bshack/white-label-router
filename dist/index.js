@@ -62,6 +62,8 @@
                 };
                 // this will hold the current url
                 this.url = '';
+                // optional mediator placeholder
+                this.mediator = false;
             }
 
             _createClass(_class, [{
@@ -78,10 +80,18 @@
             }, {
                 key: 'addListeners',
                 value: function addListeners() {
+                    var _this2 = this;
+
                     //bind all pushstate links
                     (0, _gator2.default)(document).on('click', '[data-pushstate]', this.eventPushStateClick.bind(this));
                     //bind window popstates
                     window.addEventListener('popstate', this.eventPopState.bind(this));
+                    //listen to a mediator if present
+                    if (this.mediator) {
+                        this.mediator.on('router:navigate', function (url) {
+                            _this2.navigate(url);
+                        });
+                    }
                     return this;
                 }
             }, {

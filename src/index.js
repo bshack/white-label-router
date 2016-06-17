@@ -13,6 +13,8 @@ import Gator from 'gator';
             };
             // this will hold the current url
             this.url = '';
+            // optional mediator placeholder
+            this.mediator = false;
         }
         initialize() {
             //get the url fragment
@@ -36,6 +38,12 @@ import Gator from 'gator';
                     'popstate',
                     this.eventPopState.bind(this)
                 );
+            //listen to a mediator if present
+            if (this.mediator) {
+                this.mediator.on('router:navigate', (url) => {
+                    this.navigate(url);
+                });
+            }
             return this;
         }
         eventPushStateClick(e) {
