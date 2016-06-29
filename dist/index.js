@@ -88,8 +88,8 @@
                     window.addEventListener('popstate', this.eventPopState.bind(this));
                     //listen to a mediator if present
                     if (this.mediator) {
-                        this.mediator.on('router:navigate', function (url) {
-                            _this2.navigate(url);
+                        this.mediator.on('router:navigate', function (data) {
+                            _this2.navigate(data.url);
                         });
                     }
                     return this;

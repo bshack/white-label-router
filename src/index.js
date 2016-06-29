@@ -40,8 +40,8 @@ import Gator from 'gator';
                 );
             //listen to a mediator if present
             if (this.mediator) {
-                this.mediator.on('router:navigate', (url) => {
-                    this.navigate(url);
+                this.mediator.on('router:navigate', (data) => {
+                    this.navigate(data.url);
                 });
             }
             return this;
@@ -106,10 +106,7 @@ import Gator from 'gator';
         }
         removeListeners() {
             //unbind all pushstate links
-            Gator(document).off(
-                'click',
-                '[data-pushstate]'
-            );
+            Gator(document).off('click', '[data-pushstate]');
             //bind window popstates
             window
                 .removeEventListener(
