@@ -131,7 +131,7 @@ In the example above we have set up two routes. The first route 'defaultRoute' i
 
 The second defined route 'page2' will only be executed when the specified url path starts with '/page2', or for example 'http://example.com/page2'.
 
-## Passing data
+## Passing Data
 
 The router passes in a location data object to the route that is being executed. Here is an example object passed:
 
@@ -145,7 +145,7 @@ The router passes in a location data object to the route that is being executed.
 }
 ```
 
-'data.url' is an array of values parsed from the url being requested. For Example if the url was '/user/1' and we defined a route for '/user' then data.url passsed into the '/user' would be the following:
+'data.url' is an array of values parsed from the url being requested. For Example if the url was '/user/1' and we defined a route for '/user' then data object passsed into the '/user' route would be the following:
 
 ```
 {
