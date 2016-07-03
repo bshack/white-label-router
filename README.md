@@ -78,6 +78,41 @@ you can also trigger navigation to a route with the navigate method
 myRouter.navigate('/page2');
 ```
 
+## Mediator
+
+Optionally you can use a mediator, such as White Label Mediator, with the router. To do so you would like this:
+
+```
+const MyRoute = class extends Router {
+    constructor() {
+        super();
+        
+        this.mediator = myMediator;
+        
+        this.routes = {
+            defaultRoute: (locationData) => {
+                //here you would put any view specific logic for the defaultRoute
+                window.console.log('the defaultRoute executed');
+            },
+            '/page2': (locationData) => {
+                //here you would put any view specific logic for the page2 route
+                window.console.log('the page2 route executed');
+            }
+        };
+        
+    }
+};
+```
+
+Then anywhere else in the application you want to trigger the router to navigate you could do so like this:
+
+```
+myMediator.emit('router:navigate', {
+    url: '/authentication',
+    message: 'Session expired, please login again.'
+});
+```
+
 ## Passing Data
 
 The router passes in a location data object to the route that is being executed. Here is an example object passed:
@@ -100,6 +135,30 @@ The router passes in a location data object to the route that is being executed.
     data: {
         url: [1],
         mediator: {}
+    }
+}
+```
+
+'data.mediator' is an object of values parsed through the optional mediator. For Example if this was emited through the mediator:
+
+```
+myMediator.emit('router:navigate', {
+    url: '/authentication',
+    message: 'Session expired, please login again.'
+});
+```
+
+Then the location data passed in to the '/authentication' route would be the following:
+
+```
+{
+    url: ['/authentication'],
+    data: {
+        url: [],
+        mediator: {
+            url: '/authentication',
+            message: 'Session expired, please login again.'
+        }
     }
 }
 ```
