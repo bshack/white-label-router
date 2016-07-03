@@ -78,6 +78,32 @@ you can also trigger navigation to a route with the navigate method
 myRouter.navigate('/page2');
 ```
 
+## Passing Data
+
+The router passes in a location data object to the route that is being executed. Here is an example object passed:
+
+```
+{
+    url: ['/user'],
+    data: {
+        url: [],
+        mediator: {}
+    }
+}
+```
+
+'data.url' is an array of values parsed from the url being requested. For Example if the url was '/user/1' and we defined a route for '/user' then data object passsed into the '/user' route would be the following:
+
+```
+{
+    url: ['/user/1'],
+    data: {
+        url: [1],
+        mediator: {}
+    }
+}
+```
+
 ## Let's look at an example:
 
 import the module
@@ -130,29 +156,3 @@ myRouter.navigate('/page2');
 In the example above we have set up two routes. The first route 'defaultRoute' is a catch all route. If no other routes match the specified url path this is the route that will be executed. In this example the defaultRoute would be executed for 'http://example.com' or 'http://example.com/home', but not 'http://example.com/page2'.
 
 The second defined route 'page2' will only be executed when the specified url path starts with '/page2', or for example 'http://example.com/page2'.
-
-## Passing Data
-
-The router passes in a location data object to the route that is being executed. Here is an example object passed:
-
-```
-{
-    url: ['/user'],
-    data: {
-        url: [],
-        mediator: {}
-    }
-}
-```
-
-'data.url' is an array of values parsed from the url being requested. For Example if the url was '/user/1' and we defined a route for '/user' then data object passsed into the '/user' route would be the following:
-
-```
-{
-    url: ['/user/1'],
-    data: {
-        url: [1],
-        mediator: {}
-    }
-}
-```
