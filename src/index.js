@@ -29,7 +29,7 @@ import Gator from 'gator';
         }
         addListeners() {
             //bind all pushstate links
-            Gator(document).on('click','[data-pushstate]', this.eventPushStateClick.bind(this));
+            Gator(document).on('click','a[href][data-pushstate]', this.eventPushStateClick.bind(this));
             //bind window popstates
             window.addEventListener('popstate', this.eventPopState.bind(this));
             //listen to a mediator if present
@@ -46,14 +46,19 @@ import Gator from 'gator';
         }
         removeListeners() {
             //unbind all pushstate links
-            Gator(document).off('click', '[data-pushstate]');
+            Gator(document).off('click', 'a[href][data-pushstate]');
             //bind window popstates
             window.removeEventListener('popstate', this.eventPopState.bind(this));
             return this;
         }
         eventPushStateClick(e) {
             e.preventDefault();
-            this.url = e.target.getAttribute('href') || '';
+            //for example an image tag can initiate a click event in side an anchor
+            if (e.target.tagName === 'A') {
+                this.url = e.target.getAttribute('href') || '';
+            } else {
+                this.url = e.target.parentNode.getAttribute('href') || '';
+            }
             this.navigate(false, {}, false);
             return this;
         }

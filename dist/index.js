@@ -85,7 +85,7 @@
                     var _this2 = this;
 
                     //bind all pushstate links
-                    (0, _gator2.default)(document).on('click', '[data-pushstate]', this.eventPushStateClick.bind(this));
+                    (0, _gator2.default)(document).on('click', 'a[href][data-pushstate]', this.eventPushStateClick.bind(this));
                     //bind window popstates
                     window.addEventListener('popstate', this.eventPopState.bind(this));
                     //listen to a mediator if present
@@ -106,7 +106,7 @@
                 key: 'removeListeners',
                 value: function removeListeners() {
                     //unbind all pushstate links
-                    (0, _gator2.default)(document).off('click', '[data-pushstate]');
+                    (0, _gator2.default)(document).off('click', 'a[href][data-pushstate]');
                     //bind window popstates
                     window.removeEventListener('popstate', this.eventPopState.bind(this));
                     return this;
@@ -115,7 +115,12 @@
                 key: 'eventPushStateClick',
                 value: function eventPushStateClick(e) {
                     e.preventDefault();
-                    this.url = e.target.getAttribute('href') || '';
+                    //for example an image tag can initiate a click event in side an anchor
+                    if (e.target.tagName === 'A') {
+                        this.url = e.target.getAttribute('href') || '';
+                    } else {
+                        this.url = e.target.parentNode.getAttribute('href') || '';
+                    }
                     this.navigate(false, {}, false);
                     return this;
                 }
