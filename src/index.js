@@ -1,10 +1,3 @@
-// '/authentication': {
-//     title: 'Authentication',
-//     view: (locationData) => {
-//         this.destroyAllPageViews();
-//         viewAuthentication.initialize(locationData);
-//     }
-// },
 
 // event delegation lib
 import Gator from 'gator';
