@@ -20,15 +20,6 @@ npm install white-label-router --save
 import Router from 'white-label-router';
 ```
 
-## Extending
-
-```
-const MyRouter = class extends Router {
-    someGreatFeature() {
-        console.log('this is great!');
-    }
-};
-```
 
 ## Defining Routes
 
@@ -44,6 +35,32 @@ const MyRoute = class extends Router {
             '/page2': (locationData) => {
                 //here you would put any view specific logic for the page2 route
                 window.console.log('the page2 route executed');
+            }
+        };
+    }
+};
+```
+
+or you can also define the page title for the associated route like this:
+
+```
+const MyRoute = class extends Router {
+    constructor() {
+        super();
+        this.routes = {
+            defaultRoute: {
+                title: 'Home',
+                view: (locationData) => {
+                    //here you would put any view specific logic for the defaultRoute
+                    window.console.log('the defaultRoute executed');
+                }
+            },
+            '/page2': {
+                title: 'Page 2',
+                view: (locationData) => {
+                    //here you would put any view specific logic for the page2 route
+                    window.console.log('the page2 route executed');
+                }
             }
         };
     }
@@ -86,9 +103,9 @@ Optionally you can use a mediator, such as White Label Mediator, with the router
 const MyRoute = class extends Router {
     constructor() {
         super();
-        
+
         this.mediator = myMediator;
-        
+
         this.routes = {
             defaultRoute: (locationData) => {
                 //here you would put any view specific logic for the defaultRoute
@@ -99,7 +116,7 @@ const MyRoute = class extends Router {
                 window.console.log('the page2 route executed');
             }
         };
-        
+
     }
 };
 ```
@@ -122,24 +139,41 @@ The router passes in a location data object to the route that is being executed.
     url: ['/user'],
     data: {
         url: [],
-        mediator: {}
+        mediator: {},
+        query: {}
     }
 }
 ```
 
-'data.url' is an array of values parsed from the url being requested. For Example if the url was '/user/1' and we defined a route for '/user' then data object passsed into the '/user' route would be the following:
+'data.url' is an array of values parsed from the url being requested. For Example if the url was '/user/fred' and we defined a route for '/user' then data object passed into the '/user' route would be the following:
 
 ```
 {
-    url: ['/user/1'],
+    url: ['/user/fred'],
     data: {
-        url: [1],
-        mediator: {}
+        url: ['fred'],
+        mediator: {},
+        query: {}
     }
 }
 ```
 
-'data.mediator' is an object of values parsed through the optional mediator. For Example if this was emited through the mediator:
+'data.query' is an object of values parsed from the url query string. For Example if the url was '/user?name=fred' and we defined a route for '/user' then data object passed into the '/user' route would be the following:
+
+```
+{
+    url: ['/user?name=fred'],
+    data: {
+        url: [],
+        mediator: {},
+        query: {
+            name: 'fred'
+        }
+    }
+}
+```
+
+'data.mediator' is an object of values parsed through the optional mediator. For Example if this was emitted through the mediator:
 
 ```
 myMediator.emit('router:navigate', {
