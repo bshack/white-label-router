@@ -57,14 +57,19 @@
 
         module.exports = function () {
             function _class() {
-                var _this = this;
-
                 _classCallCheck(this, _class);
 
                 // placeholder for routes defined when extended
                 this.routes = {
-                    defaultRoute: function defaultRoute() {
-                        return _this;
+                    defaultRoute: {
+                        view: {
+                            initialize: function initialize() {
+                                return true;
+                            },
+                            destroy: function destroy() {
+                                return true;
+                            }
+                        }
                     }
                 };
 
@@ -73,6 +78,8 @@
 
                 // this holds the current route displayed, used for destroying it later
                 this.route = null;
+
+                this.previousRoute = null;
 
                 // this will hold the page title (not yet supported by browsers)
                 this.pageTitle = null;
@@ -99,7 +106,7 @@
             }, {
                 key: 'addListeners',
                 value: function addListeners() {
-                    var _this2 = this;
+                    var _this = this;
 
                     //bind all pushstate links
                     (0, _gator2.default)(document).on('click', 'a[href][data-pushstate]', this.eventPushStateClick.bind(this));
@@ -111,7 +118,7 @@
                     if (this.mediator) {
 
                         this.mediator.on('router:navigate', function (data) {
-                            _this2.navigate(data.url, data || {}, false);
+                            _this.navigate(data.url, data || {}, false);
                         });
                     }
 
@@ -220,6 +227,9 @@
                 key: 'navigate',
                 value: function navigate(url, mediatorData, isPopState) {
 
+                    //cache the old route
+                    this.previousRoute = this.route;
+
                     // allow navigate to use a specified url
                     if (url) {
                         this.url = url;
@@ -241,26 +251,51 @@
                         }
                     }
 
+                    this.setLocationData(mediatorData);
+
                     // if a catch all default route is defined execute that when not match is found
                     if (!this.route && this.routes.defaultRoute) {
 
                         this.route = 'defaultRoute';
-
-                        this.routes.defaultRoute(this.locationData);
                     }
 
                     if (this.route) {
 
-                        this.setLocationData(mediatorData);
+                        // check if the page is secure and if the user passes the specified secure checking function
+                        if (typeof this.routes[this.route].secure === 'function' && this.routes[this.route].secure(this.locationData) !== true) {
+                            return false;
+                        }
+
+                        //if previous route then destroy it
+                        if (this.previousRoute) {
+
+                            // else if it is an object check if there is a view class
+                            if (_typeof(this.routes[this.previousRoute]) === 'object' && _typeof(this.routes[this.previousRoute].view) === 'object' && typeof this.routes[this.previousRoute].view.destroy === 'function') {
+
+                                //destroy the view
+                                this.routes[this.previousRoute].view.destroy(this.locationData);
+                            }
+                        }
 
                         //execute the route if it is a simple function
                         if (typeof this.routes[this.route] === 'function') {
 
                             //execute the view
                             this.routes[this.route](this.locationData);
-
-                            // else if it is an object check if there is a view function
                         } else if (_typeof(this.routes[this.route]) === 'object' && typeof this.routes[this.route].view === 'function') {
+
+                            //execute the view
+                            this.routes[this.route].view(this.locationData);
+
+                            // if a title is defined for this route we'll set it
+                            if (typeof this.routes[this.route].title === 'string') {
+                                this.pageTitle = this.routes[this.route].title;
+                            } else {
+                                this.pageTitle = null;
+                            }
+
+                            // else if it is an object check if there is a view class
+                        } else if (_typeof(this.routes[this.route]) === 'object' && _typeof(this.routes[this.route].view) === 'object' && typeof this.routes[this.route].view.initialize === 'function') {
 
                                 // if a title is defined for this route we'll set it
                                 if (typeof this.routes[this.route].title === 'string') {
@@ -270,20 +305,22 @@
                                 }
 
                                 //execute the view
-                                this.routes[this.route].view(this.locationData);
+                                this.routes[this.route].view.initialize(this.locationData);
+                            } else {
+
+                                return false;
                             }
                     }
 
                     // make sure to not set pushstate on back button click
                     if (!isPopState) {
-
                         //set in history the new url
                         window.history.pushState(this.url, this.pageTitle, this.url);
+                    }
 
-                        // since browsers don't support setting the title with pushstate yet
-                        if (this.pageTitle) {
-                            document.title = this.pageTitle;
-                        }
+                    // since browsers don't support setting the title with pushstate yet
+                    if (this.pageTitle) {
+                        document.title = this.pageTitle;
                     }
 
                     return this;

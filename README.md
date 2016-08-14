@@ -23,6 +23,8 @@ import Router from 'white-label-router';
 
 ## Defining Routes
 
+The most simple way simply executes any function you define:
+
 ```
 const MyRoute = class extends Router {
     constructor() {
@@ -41,7 +43,39 @@ const MyRoute = class extends Router {
 };
 ```
 
-or you can also define the page title for the associated route like this:
+or you can also define initialize and destroy functions in your view which will be automatically called as the user navigates your application:
+
+```
+const MyRoute = class extends Router {
+    constructor() {
+        super();
+        this.routes = {
+            defaultRoute: {
+                view: {
+                    initialize: (locationData) => {
+                        window.console.log('the defaultRoute initialized');
+                    },
+                    destroy: (locationData) => {
+                        window.console.log('the defaultRoute has been destroyed');
+                    }
+                }
+            },
+            '/page2': {
+                view: {
+                    initialize: (locationData) => {
+                        window.console.log('the page2 initialized');
+                    },
+                    destroy: (locationData) => {
+                        window.console.log('the page2 has been destroyed');
+                    }
+                }
+            }
+        };
+    }
+};
+```
+
+You have some additional options when using the view object approach. They include the ability to set the page title for a route and also do security check before a route's view is initialized at the router level:
 
 ```
 const MyRoute = class extends Router {
@@ -50,19 +84,35 @@ const MyRoute = class extends Router {
         this.routes = {
             defaultRoute: {
                 title: 'Home',
-                view: (locationData) => {
-                    //here you would put any view specific logic for the defaultRoute
-                    window.console.log('the defaultRoute executed');
+                view: {
+                    initialize: (locationData) => {
+                        window.console.log('the defaultRoute initialized');
+                    },
+                    destroy: (locationData) => {
+                        window.console.log('the defaultRoute has been destroyed');
+                    }
                 }
             },
             '/page2': {
                 title: 'Page 2',
-                view: (locationData) => {
-                    //here you would put any view specific logic for the page2 route
-                    window.console.log('the page2 route executed');
-                }
+                view: {
+                    initialize: (locationData) => {
+                        window.console.log('the page2 initialized');
+                    },
+                    destroy: (locationData) => {
+                        window.console.log('the page2 has been destroyed');
+                    }
+                },
+                secure: this.isSecure
             }
         };
+    }
+    isSecure (locationData) => {
+        if (someCookieIsValid) {
+            return true;
+        } else {
+            return false;
+        }
     }
 };
 ```

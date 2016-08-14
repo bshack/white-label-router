@@ -12,16 +12,25 @@ import Gator from 'gator';
 
             // placeholder for routes defined when extended
             this.routes = {
-                defaultRoute: () => {
-                    return this;
+                defaultRoute: {
+                    view: {
+                        initialize: () => {
+                            return true;
+                        },
+                        destroy: () => {
+                            return true;
+                        }
+                    }
                 }
-            };
+            }
 
             // this will hold the current url
             this.url = '';
 
             // this holds the current route displayed, used for destroying it later
             this.route = null;
+
+            this.previousRoute = null;
 
             // this will hold the page title (not yet supported by browsers)
             this.pageTitle = null;
@@ -169,6 +178,9 @@ import Gator from 'gator';
 
         navigate(url, mediatorData, isPopState) {
 
+            //cache the old route
+            this.previousRoute = this.route;
+
             // allow navigate to use a specified url
             if (url) {
                 this.url = url;
@@ -192,18 +204,41 @@ import Gator from 'gator';
 
             }
 
+            this.setLocationData(mediatorData);
+
             // if a catch all default route is defined execute that when not match is found
             if (!this.route && this.routes.defaultRoute) {
 
                 this.route = 'defaultRoute';
 
-                this.routes.defaultRoute(this.locationData);
-
             }
 
             if (this.route) {
 
-                this.setLocationData(mediatorData);
+                // check if the page is secure and if the user passes the specified secure checking function
+                if (
+                    typeof this.routes[this.route].secure === 'function' &&
+                    this.routes[this.route].secure(this.locationData) !== true
+                ) {
+                    return false;
+                }
+
+                //if previous route then destroy it
+                if (this.previousRoute) {
+
+                    // else if it is an object check if there is a view class
+                    if (
+                        typeof this.routes[this.previousRoute] === 'object' &&
+                        typeof this.routes[this.previousRoute].view === 'object' &&
+                        typeof this.routes[this.previousRoute].view.destroy === 'function'
+                    ) {
+
+                        //destroy the view
+                        this.routes[this.previousRoute].view.destroy(this.locationData);
+
+                    }
+
+                }
 
                 //execute the route if it is a simple function
                 if (typeof this.routes[this.route] === 'function') {
@@ -211,10 +246,26 @@ import Gator from 'gator';
                     //execute the view
                     this.routes[this.route](this.locationData);
 
-                // else if it is an object check if there is a view function
                 } else if (
                     typeof this.routes[this.route] === 'object' &&
                     typeof this.routes[this.route].view === 'function'
+                ) {
+
+                    //execute the view
+                    this.routes[this.route].view(this.locationData);
+
+                    // if a title is defined for this route we'll set it
+                    if (typeof this.routes[this.route].title === 'string') {
+                        this.pageTitle = this.routes[this.route].title;
+                    } else {
+                        this.pageTitle = null;
+                    }
+
+                // else if it is an object check if there is a view class
+                } else if (
+                    typeof this.routes[this.route] === 'object' &&
+                    typeof this.routes[this.route].view === 'object' &&
+                    typeof this.routes[this.route].view.initialize === 'function'
                 ) {
 
                     // if a title is defined for this route we'll set it
@@ -225,7 +276,11 @@ import Gator from 'gator';
                     }
 
                     //execute the view
-                    this.routes[this.route].view(this.locationData);
+                    this.routes[this.route].view.initialize(this.locationData);
+
+                } else {
+
+                    return false;
 
                 }
 
@@ -233,15 +288,13 @@ import Gator from 'gator';
 
             // make sure to not set pushstate on back button click
             if (!isPopState) {
-
                 //set in history the new url
                 window.history.pushState(this.url, this.pageTitle, this.url);
+            }
 
-                // since browsers don't support setting the title with pushstate yet
-                if (this.pageTitle) {
-                    document.title = this.pageTitle;
-                }
-
+            // since browsers don't support setting the title with pushstate yet
+            if (this.pageTitle) {
+                document.title = this.pageTitle;
             }
 
             return this;
