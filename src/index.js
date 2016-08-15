@@ -42,6 +42,12 @@ import Gator from 'gator';
 
         initialize() {
 
+            // set orgin if not supported by the browser
+            if (!window.location.origin) {
+                window.location.origin = window.location.protocol + '//' + window.location.hostname +
+                    (window.location.port ? ':' + window.location.port: '');
+            }
+
             //get the url fragment w/query string
             this.url = (window.location.pathname + (window.location.search || '') || '');
 
@@ -58,7 +64,7 @@ import Gator from 'gator';
         addListeners() {
 
             //bind all pushstate links
-            Gator(document).on('click','a[href][data-pushstate]', this.eventPushStateClick.bind(this));
+            Gator(document).on('click', 'a[href][data-pushstate]', this.eventPushStateClick.bind(this));
 
             //bind window popstates
             window.addEventListener('popstate', this.eventPopState.bind(this));
@@ -185,6 +191,9 @@ import Gator from 'gator';
             if (url) {
                 this.url = url;
             }
+
+            //clean up url for matching
+            this.url = this.url.replace(window.location.origin, '');
 
             // reset this to null for new location
             this.route = null;
