@@ -117,9 +117,7 @@ const MyRoute = class extends Router {
 };
 ```
 
-When a route is executed location data is passed if you need do additional logic around the url. It will include the full url and an array of data created from the path name.
-
-NOTE: routes are matched by checking if the path name string starts with the route. For the example above the route '/page2' would be executed for both path names '/page2' and '/page23/232'.
+NOTE: routes are matched by checking if the beginning of the url path name string matches a route. For the example above the route '/page2' would be executed for both path names '/page2' and '/page23/232'.
 
 ## Instantiate
 
