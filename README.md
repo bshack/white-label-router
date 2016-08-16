@@ -30,11 +30,11 @@ const MyRoute = class extends Router {
     constructor() {
         super();
         this.routes = {
-            defaultRoute: (locationData) => {
+            defaultRoute: (scope, locationData) => {
                 //here you would put any view specific logic for the defaultRoute
                 window.console.log('the defaultRoute executed');
             },
-            '/page2': (locationData) => {
+            '/page2': (scope, locationData) => {
                 //here you would put any view specific logic for the page2 route
                 window.console.log('the page2 route executed');
             }
@@ -52,20 +52,20 @@ const MyRoute = class extends Router {
         this.routes = {
             defaultRoute: {
                 view: {
-                    initialize: (locationData) => {
+                    initialize: (scope, locationData) => {
                         window.console.log('the defaultRoute initialized');
                     },
-                    destroy: (locationData) => {
+                    destroy: (scope, locationData) => {
                         window.console.log('the defaultRoute has been destroyed');
                     }
                 }
             },
             '/page2': {
                 view: {
-                    initialize: (locationData) => {
+                    initialize: (scope, locationData) => {
                         window.console.log('the page2 initialized');
                     },
-                    destroy: (locationData) => {
+                    destroy: (scope, locationData) => {
                         window.console.log('the page2 has been destroyed');
                     }
                 }
@@ -85,10 +85,10 @@ const MyRoute = class extends Router {
             defaultRoute: {
                 title: 'Home',
                 view: {
-                    initialize: (locationData) => {
+                    initialize: (scope, locationData) => {
                         window.console.log('the defaultRoute initialized');
                     },
-                    destroy: (locationData) => {
+                    destroy: (scope, locationData) => {
                         window.console.log('the defaultRoute has been destroyed');
                     }
                 }
@@ -96,10 +96,10 @@ const MyRoute = class extends Router {
             '/page2': {
                 title: 'Page 2',
                 view: {
-                    initialize: (locationData) => {
+                    initialize: (scope, locationData) => {
                         window.console.log('the page2 initialized');
                     },
-                    destroy: (locationData) => {
+                    destroy: (scope, locationData) => {
                         window.console.log('the page2 has been destroyed');
                     }
                 },
@@ -107,7 +107,7 @@ const MyRoute = class extends Router {
             }
         };
     }
-    isSecure (locationData) => {
+    isSecure (scope, locationData) => {
         if (someCookieIsValid) {
             return true;
         } else {
@@ -118,6 +118,33 @@ const MyRoute = class extends Router {
 ```
 
 NOTE: routes are matched by checking if the beginning of the url path name string matches a route. For the example above the route '/page2' would be executed for both path names '/page2' and '/page23/232'.
+
+## Scope
+
+Optionally you and provide a DOM element to be the scope of the router. That DOM object will then be passed into all your routes as they are executed. If you do not provide a scope then it will be passed in as null into your views. To do so you would like this:
+
+```
+const MyRoute = class extends Router {
+    constructor() {
+        super();
+
+        // the container element where all views will be placed
+        this.scope = document.querySelector('body');
+
+        this.routes = {
+            defaultRoute: (scope, locationData) => {
+                //here you would put any view specific logic for the defaultRoute
+                window.console.log('the defaultRoute executed');
+            },
+            '/page2': (scope, locationData) => {
+                //here you would put any view specific logic for the page2 route
+                window.console.log('the page2 route executed');
+            }
+        };
+
+    }
+};
+```
 
 ## Instantiate
 
@@ -152,14 +179,17 @@ const MyRoute = class extends Router {
     constructor() {
         super();
 
+        // the container element where all views will be placed
+        this.scope = document.querySelector('body');
+
         this.mediator = myMediator;
 
         this.routes = {
-            defaultRoute: (locationData) => {
+            defaultRoute: (scope, locationData) => {
                 //here you would put any view specific logic for the defaultRoute
                 window.console.log('the defaultRoute executed');
             },
-            '/page2': (locationData) => {
+            '/page2': (scope, locationData) => {
                 //here you would put any view specific logic for the page2 route
                 window.console.log('the page2 route executed');
             }
@@ -176,6 +206,33 @@ myMediator.emit('router:navigate', {
     url: '/authentication',
     message: 'Session expired, please login again.'
 });
+```
+
+## Scope
+
+Optionally you and provide a DOM element to be the scope of the router. That DOM object will then be passed into all your routes as they are executed. To do so you would like this:
+
+```
+const MyRoute = class extends Router {
+    constructor() {
+        super();
+
+        // the container element where all views will be placed
+        this.scope = document.querySelector('body');
+
+        this.routes = {
+            defaultRoute: (scope, locationData) => {
+                //here you would put any view specific logic for the defaultRoute
+                window.console.log('the defaultRoute executed');
+            },
+            '/page2': (scope, locationData) => {
+                //here you would put any view specific logic for the page2 route
+                window.console.log('the page2 route executed');
+            }
+        };
+
+    }
+};
 ```
 
 ## Passing Data
@@ -259,18 +316,23 @@ extend the router
 const myRouter = class extends Router {
     // this is the constructor. This executed whenever the view is instantiated.
     constructor() {
-        // always do this
+
         super();
+
+        // the container element where all views will be placed
+        this.scope = document.querySelector('body');
+
         this.routes = {
-            defaultRoute: (locationData) => {
+            defaultRoute: (scope, locationData) => {
                 //here you would put any view specific logic for the defaultRoute
                 window.console.log('the defaultRoute executed');
             },
-            '/page2': (locationData) => {
+            '/page2': (scope, locationData) => {
                 //here you would put any view specific logic for the page2 route
                 window.console.log('the page2 route executed');
             }
         };
+        
     }
 };
 

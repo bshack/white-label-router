@@ -76,9 +76,13 @@
                 // this will hold the current url
                 this.url = '';
 
-                // this holds the current route displayed, used for destroying it later
+                // this holds the current route
                 this.route = null;
 
+                // can house a container for the router to act upon
+                this.scope = null;
+
+                // this holds the previous route for destorying later
                 this.previousRoute = null;
 
                 // this will hold the page title (not yet supported by browsers)
@@ -232,9 +236,6 @@
                 key: 'navigate',
                 value: function navigate(url, mediatorData, isPopState) {
 
-                    //cache the old route
-                    this.previousRoute = this.route;
-
                     // allow navigate to use a specified url
                     if (url) {
                         this.url = url;
@@ -270,7 +271,7 @@
                     if (this.route) {
 
                         // check if the page is secure and if the user passes the specified secure checking function
-                        if (typeof this.routes[this.route].secure === 'function' && this.routes[this.route].secure(this.locationData) !== true) {
+                        if (typeof this.routes[this.route].secure === 'function' && this.routes[this.route].secure(this.scope, this.locationData) !== true) {
                             return false;
                         }
 
@@ -281,7 +282,7 @@
                             if (_typeof(this.routes[this.previousRoute]) === 'object' && _typeof(this.routes[this.previousRoute].view) === 'object' && typeof this.routes[this.previousRoute].view.destroy === 'function') {
 
                                 //destroy the view
-                                this.routes[this.previousRoute].view.destroy(this.locationData);
+                                this.routes[this.previousRoute].view.destroy(this.scope, this.locationData);
                             }
                         }
 
@@ -289,11 +290,14 @@
                         if (typeof this.routes[this.route] === 'function') {
 
                             //execute the view
-                            this.routes[this.route](this.locationData);
+                            this.routes[this.route](this.scope, this.locationData);
+
+                            //cache the old route
+                            this.previousRoute = this.route;
                         } else if (_typeof(this.routes[this.route]) === 'object' && typeof this.routes[this.route].view === 'function') {
 
                             //execute the view
-                            this.routes[this.route].view(this.locationData);
+                            this.routes[this.route].view(this.scope, this.locationData);
 
                             // if a title is defined for this route we'll set it
                             if (typeof this.routes[this.route].title === 'string') {
@@ -301,6 +305,9 @@
                             } else {
                                 this.pageTitle = null;
                             }
+
+                            //cache the old route
+                            this.previousRoute = this.route;
 
                             // else if it is an object check if there is a view class
                         } else if (_typeof(this.routes[this.route]) === 'object' && _typeof(this.routes[this.route].view) === 'object' && typeof this.routes[this.route].view.initialize === 'function') {
@@ -313,7 +320,10 @@
                                 }
 
                                 //execute the view
-                                this.routes[this.route].view.initialize(this.locationData);
+                                this.routes[this.route].view.initialize(this.scope, this.locationData);
+
+                                //cache the old route
+                                this.previousRoute = this.route;
                             } else {
 
                                 return false;
