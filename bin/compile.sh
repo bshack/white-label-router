@@ -1,2 +1,4 @@
-#!/bin/bash
-../node_modules/babel-cli/bin/babel.js ../src/index.js --out-file ../dist/index.js
+#!/usr/bin/env bash
+set -euo pipefail
+
+../node_modules/.bin/babel ../src/index.js --out-file ../dist/index.js
