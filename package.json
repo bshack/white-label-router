@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "description": "A simple ES6 JS router",
   "main": "dist/index.js",
+  "files": ["dist", "README.md"],
   "engines": {
     "node": "^22.18.0 || >=24.11.0",
     "npm": ">=10.0"

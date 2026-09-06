@@ -53,6 +53,10 @@
         // Stable listener references allow destroy() to release browser resources.
         this.boundPushStateClick = this.eventPushStateClick.bind(this);
         this.boundPopState = this.eventPopState.bind(this);
+        this.boundMediatorNavigate = (data = {}) => {
+          this.navigate(data.url, data, false);
+        };
+        this.listenersInitialized = false;
       }
       initialize() {
         // set orgin if not supported by the browser
@@ -71,6 +75,10 @@
         return this;
       }
       addListeners() {
+        if (this.listenersInitialized) {
+          return this;
+        }
+
         // Delegate push-state links from one document listener.
         document.addEventListener('click', this.boundPushStateClick);
 
@@ -79,10 +87,9 @@
 
         //listen to a mediator if present
         if (this.mediator) {
-          this.mediator.on('router:navigate', data => {
-            this.navigate(data.url, data || {}, false);
-          });
+          this.mediator.on('router:navigate', this.boundMediatorNavigate);
         }
+        this.listenersInitialized = true;
         return this;
       }
       destroy() {
@@ -90,11 +97,19 @@
         return this;
       }
       removeListeners() {
+        if (!this.listenersInitialized) {
+          return this;
+        }
+
         // Unbind the same stable listener objects registered by addListeners().
         document.removeEventListener('click', this.boundPushStateClick);
 
         //bind window popstates
         window.removeEventListener('popstate', this.boundPopState);
+        if (this.mediator && typeof this.mediator.removeListener === 'function') {
+          this.mediator.removeListener('router:navigate', this.boundMediatorNavigate);
+        }
+        this.listenersInitialized = false;
         return this;
       }
       eventPushStateClick(e) {
