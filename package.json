@@ -4,7 +4,7 @@
   "description": "A simple ES6 JS router",
   "main": "dist/index.js",
   "engines": {
-    "node": ">=20.0",
+    "node": "^22.18.0 || >=24.11.0",
     "npm": ">=10.0"
   },
   "repository": {
@@ -38,9 +38,9 @@
     "audit": "npm audit --audit-level=high"
   },
   "devDependencies": {
-    "@babel/cli": "7.28.3",
-    "@babel/core": "7.29.7",
-    "@babel/plugin-transform-modules-umd": "7.27.1",
-    "@babel/preset-env": "7.28.3"
+    "@babel/cli": "8.0.4",
+    "@babel/core": "8.0.1",
+    "@babel/plugin-transform-modules-umd": "8.0.1",
+    "@babel/preset-env": "8.0.2"
   }
 }
