@@ -1,7 +1,4 @@
 
-// event delegation lib
-import Gator from 'gator';
-
 (() => {
 
     'use strict';
@@ -42,6 +39,10 @@ import Gator from 'gator';
             // optional mediator placeholder
             this.mediator = false;
 
+            // Stable listener references allow destroy() to release browser resources.
+            this.boundPushStateClick = this.eventPushStateClick.bind(this);
+            this.boundPopState = this.eventPopState.bind(this);
+
         }
 
         initialize() {
@@ -67,11 +68,11 @@ import Gator from 'gator';
 
         addListeners() {
 
-            //bind all pushstate links
-            Gator(document).on('click', 'a[href][data-pushstate]', this.eventPushStateClick.bind(this));
+            // Delegate push-state links from one document listener.
+            document.addEventListener('click', this.boundPushStateClick);
 
             //bind window popstates
-            window.addEventListener('popstate', this.eventPopState.bind(this));
+            window.addEventListener('popstate', this.boundPopState);
 
             //listen to a mediator if present
             if (this.mediator) {
@@ -96,11 +97,11 @@ import Gator from 'gator';
 
         removeListeners() {
 
-            //unbind all pushstate links
-            Gator(document).off('click', 'a[href][data-pushstate]');
+            // Unbind the same stable listener objects registered by addListeners().
+            document.removeEventListener('click', this.boundPushStateClick);
 
             //bind window popstates
-            window.removeEventListener('popstate', this.eventPopState.bind(this));
+            window.removeEventListener('popstate', this.boundPopState);
 
             return this;
 
@@ -108,14 +109,20 @@ import Gator from 'gator';
 
         eventPushStateClick(e) {
 
+            const source = e.target && (
+                typeof e.target.closest === 'function' ? e.target : e.target.parentElement
+            );
+            const anchor = source && typeof source.closest === 'function'
+                ? source.closest('a[href][data-pushstate]')
+                : null;
+            if (!anchor) {
+                return true;
+            }
+
             e.preventDefault();
 
-            //for example an image tag can initiate a click event in side an anchor
-            if (e.target.tagName === 'A') {
-                this.url = e.target.getAttribute('href') || '';
-            } else {
-                this.url = e.target.parentNode.getAttribute('href') || '';
-            }
+            // closest() supports nested elements at any depth inside the selected anchor.
+            this.url = anchor.getAttribute('href') || '';
 
             this.navigate(false, {}, false);
 
