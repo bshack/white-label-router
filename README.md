@@ -95,7 +95,7 @@ The `secure` function must return exactly `true` to allow navigation. When navig
 
 ### Route matching behavior
 
-Routes use prefix matching in object insertion order. For example, `/products` matches both `/products` and `/products/42`. Put more specific prefixes before broader ones:
+Routes match complete path boundaries in object insertion order. For example, `/products` matches `/products` and `/products/42`, but it does not match `/products-old`. Put more specific routes before broader ones:
 
 ```js
 this.routes = {
@@ -118,6 +118,8 @@ The router delegates one document-level click listener. Add `data-pushstate` to 
 ```
 
 Clicks on nested elements such as the `span` are resolved to the enclosing anchor. Links without `data-pushstate` keep their normal browser behavior.
+
+Modified clicks, non-left clicks, downloads, links targeting another browsing context, and cross-origin URLs also keep their normal browser behavior.
 
 ## Navigate from JavaScript
 
@@ -153,7 +155,11 @@ Every route receives the configured `scope` and a location object:
 - `data.mediator` contains the object passed to `navigate()` or received from the mediator.
 - `data.query` contains parsed query values.
 
-Values are not URI-decoded by the router. Decode and validate route or query values in application code before using them.
+Path segments and query values are URI-decoded with browser-native URL APIs. Application code must still validate values before using them.
+
+## Version 3 migration note
+
+Version 3 changes route matching from unrestricted string prefixes to path boundaries. A route such as `/page2` no longer matches `/page23`. Define `/page23` explicitly if the application previously depended on that behavior.
 
 ## Mediator navigation
 

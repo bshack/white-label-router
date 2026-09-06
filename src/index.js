@@ -123,6 +123,14 @@
 
         eventPushStateClick(e) {
 
+            if (
+                e.defaultPrevented ||
+                (e.button !== undefined && e.button !== 0) ||
+                e.metaKey || e.ctrlKey || e.shiftKey || e.altKey
+            ) {
+                return true;
+            }
+
             const source = e.target && (
                 typeof e.target.closest === 'function' ? e.target : e.target.parentElement
             );
@@ -133,10 +141,26 @@
                 return true;
             }
 
+            const target = anchor.getAttribute('target');
+            if (
+                anchor.hasAttribute('download') ||
+                (target && target.toLowerCase() !== '_self')
+            ) {
+                return true;
+            }
+
+            const location = new URL(
+                anchor.getAttribute('href'),
+                window.location.href || `${window.location.origin}/`
+            );
+            if (location.origin !== window.location.origin) {
+                return true;
+            }
+
             e.preventDefault();
 
             // closest() supports nested elements at any depth inside the selected anchor.
-            this.url = anchor.getAttribute('href') || '';
+            this.url = `${location.pathname}${location.search}${location.hash}`;
 
             this.navigate(false, {}, false);
 
@@ -155,30 +179,14 @@
         }
 
         parseQueryString(queryString) {
-
-            let params = {};
-            let queries;
-            let temp;
-            let i;
-            let l;
-
-            // Split into key/value pairs
-            queries = queryString.split('&amp;');
-
-            // Convert the array of strings into an object
-            for (i = 0, l = queries.length; i < l; i++) {
-                temp = queries[i].split('=');
-                params[temp[0]] = temp[1];
-            }
-
-            return params;
+            return Object.fromEntries(new URLSearchParams(queryString));
 
         }
 
         setLocationData(mediatorData) {
 
-            //split the url here to seperate query strings from url path
-            let urlFragments = this.url.split('?');
+            const parsedUrl = new URL(this.url, window.location.origin);
+            const matchedRoute = this.route && this.route !== 'defaultRoute' ? this.route : '';
 
             // this is the object passed to the matching view
             this.locationData = {
@@ -191,19 +199,20 @@
             };
 
             // parse out the url data
-            this.locationData.data.url = urlFragments[0].replace(this.route, '').split('/');
-            this.locationData.data.url.splice(0, 1);
-
-            // remove any trailing empty items from the array
-            if (this.locationData.data.url.length
-                    && this.locationData.data.url[this.locationData.data.url.length - 1] === '') {
-                this.locationData.data.url.splice(this.locationData.data.url.length - 1, 1);
-            }
+            this.locationData.data.url = parsedUrl.pathname
+                .slice(matchedRoute.length)
+                .split('/')
+                .filter(Boolean)
+                .map((fragment) => {
+                    try {
+                        return decodeURIComponent(fragment);
+                    } catch (error) {
+                        return fragment;
+                    }
+                });
 
             //add query string data
-            if (urlFragments[1]) {
-                this.locationData.data.query = this.parseQueryString(urlFragments[1].replace('?', ''));
-            }
+            this.locationData.data.query = this.parseQueryString(parsedUrl.search);
 
         }
 
@@ -220,11 +229,15 @@
             // reset this to null for new location
             this.route = null;
 
-            //find the first matcher that starts with the same string as a defined route
+            const pathname = new URL(this.url, window.location.origin).pathname;
+
+            // Match complete path segments so /page2 does not also match /page23.
             for (let route in this.routes) {
 
-                // we have a match
-                if (this.url.lastIndexOf(route, 0) === 0) {
+                if (
+                    route !== 'defaultRoute' &&
+                    (pathname === route || pathname.startsWith(`${route}/`))
+                ) {
 
                     this.route = route;
 
