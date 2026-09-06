@@ -1,361 +1,203 @@
 # white-label-router
 
-A simple ES6 JS router based on the history api and pushstate.
+`white-label-router` is a small client-side router built on the browser History API. It maps URL prefixes to functions or view lifecycle objects, intercepts links marked with `data-pushstate`, handles browser back/forward navigation, and can receive navigation requests through a mediator.
 
-Learn more about ES6 classes here:
+## Requirements
 
-https://babeljs.io/docs/learn-es2015/
+- Node.js `^22.18.0` or `>=24.11.0` for installation and development
+- A browser environment with `window.history`, `window.location`, and standard DOM events at runtime
+- Server fallback configuration that serves the application entry page for client-managed URLs
 
-## Install
+## Install and import
 
-Install the node module:
-
+```sh
+npm install white-label-router
 ```
-npm install white-label-router --save
-```
 
-## Import
-
-```
+```js
 import Router from 'white-label-router';
 ```
 
+## Complete example
 
-## Defining Routes
+```js
+import Router from 'white-label-router';
 
-The most simple way simply executes any function you define:
-
-```
-const MyRoute = class extends Router {
+class ApplicationRouter extends Router {
     constructor() {
         super();
+
+        this.scope = document.querySelector('main');
         this.routes = {
-            defaultRoute: (scope, locationData) => {
-                //here you would put any view specific logic for the defaultRoute
-                window.console.log('the defaultRoute executed');
+            '/products': (scope, location) => {
+                scope.textContent = `Product: ${location.data.url[0] || 'all'}`;
             },
-            '/page2': (scope, locationData) => {
-                //here you would put any view specific logic for the page2 route
-                window.console.log('the page2 route executed');
+            '/account': {
+                title: 'Your account',
+                secure: () => Boolean(window.currentUser),
+                view: {
+                    initialize: (scope, location) => {
+                        scope.textContent = 'Account';
+                        console.log(location.data.query);
+                    },
+                    destroy: () => {
+                        console.log('Leaving account');
+                    }
+                }
+            },
+            defaultRoute: () => {
+                console.log('No configured route matched.');
             }
         };
+    }
+}
+
+const router = new ApplicationRouter();
+router.initialize();
+```
+
+At startup, `initialize()` reads the current path and query string, registers document click and browser `popstate` listeners, and navigates to the matching route.
+
+## Define routes
+
+A route may be a function:
+
+```js
+this.routes = {
+    '/help': (scope, location) => {
+        scope.textContent = `Help page: ${location.url}`;
     }
 };
 ```
 
-or you can also define initialize and destroy functions in your view which will be automatically called as the user navigates your application:
+Or it may describe a title, security check, and view lifecycle:
 
-```
-const MyRoute = class extends Router {
-    constructor() {
-        super();
-        this.routes = {
-            defaultRoute: {
-                view: {
-                    initialize: (scope, locationData) => {
-                        window.console.log('the defaultRoute initialized');
-                    },
-                    destroy: (scope, locationData) => {
-                        window.console.log('the defaultRoute has been destroyed');
-                    }
-                }
+```js
+this.routes = {
+    '/orders': {
+        title: 'Orders',
+        secure(scope, location) {
+            return Boolean(window.currentUser);
+        },
+        view: {
+            initialize(scope, location) {
+                scope.textContent = 'Order history';
             },
-            '/page2': {
-                view: {
-                    initialize: (scope, locationData) => {
-                        window.console.log('the page2 initialized');
-                    },
-                    destroy: (scope, locationData) => {
-                        window.console.log('the page2 has been destroyed');
-                    }
-                }
+            destroy(scope, nextLocation) {
+                scope.replaceChildren();
             }
-        };
-    }
-};
-```
-
-You have some additional options when using the view object approach. They include the ability to set the page title for a route and also do security check before a route's view is initialized at the router level:
-
-```
-const MyRoute = class extends Router {
-    constructor() {
-        super();
-        this.routes = {
-            defaultRoute: {
-                title: 'Home',
-                view: {
-                    initialize: (scope, locationData) => {
-                        window.console.log('the defaultRoute initialized');
-                    },
-                    destroy: (scope, locationData) => {
-                        window.console.log('the defaultRoute has been destroyed');
-                    }
-                }
-            },
-            '/page2': {
-                title: 'Page 2',
-                view: {
-                    initialize: (scope, locationData) => {
-                        window.console.log('the page2 initialized');
-                    },
-                    destroy: (scope, locationData) => {
-                        window.console.log('the page2 has been destroyed');
-                    }
-                },
-                secure: this.isSecure
-            }
-        };
-    }
-    isSecure (scope, locationData) => {
-        if (someCookieIsValid) {
-            return true;
-        } else {
-            return false;
         }
     }
 };
 ```
 
-NOTE: routes are matched by checking if the beginning of the url path name string matches a route. For the example above the route '/page2' would be executed for both path names '/page2' and '/page23/232'.
+The `secure` function must return exactly `true` to allow navigation. When navigation succeeds, the previous route's `destroy()` runs before the next route's `initialize()`.
 
-## Scope
+### Route matching behavior
 
-Optionally you and provide a DOM element to be the scope of the router. That DOM object will then be passed into all your routes as they are executed. If you do not provide a scope then it will be passed in as null into your views. To do so you would like this:
+Routes use prefix matching in object insertion order. For example, `/products` matches both `/products` and `/products/42`. Put more specific prefixes before broader ones:
 
-```
-const MyRoute = class extends Router {
-    constructor() {
-        super();
-
-        // the container element where all views will be placed
-        this.scope = document.querySelector('body');
-
-        this.routes = {
-            defaultRoute: (scope, locationData) => {
-                //here you would put any view specific logic for the defaultRoute
-                window.console.log('the defaultRoute executed');
-            },
-            '/page2': (scope, locationData) => {
-                //here you would put any view specific logic for the page2 route
-                window.console.log('the page2 route executed');
-            }
-        };
-
-    }
+```js
+this.routes = {
+    '/products/sale': saleRoute,
+    '/products': productsRoute,
+    defaultRoute
 };
 ```
 
-## Instantiate
+If no prefix matches, `defaultRoute` is used when present.
 
-```
-const myRouter = new MyRouter();
+## Navigate from HTML
 
-myRouter.initialize();
-```
+The router delegates one document-level click listener. Add `data-pushstate` to an anchor to use client-side navigation:
 
-## HTML Linking To Routes
-
-you can make any anchor tigger a specified route by simply setting the href attribute to your route path and adding the attribute 'data-pushstate'.
-
-```
-<a href="/page2" data-pushstate>take me to page2</a>
+```html
+<a href="/products/42" data-pushstate>
+    <span>View product 42</span>
+</a>
 ```
 
-## Navigate
+Clicks on nested elements such as the `span` are resolved to the enclosing anchor. Links without `data-pushstate` keep their normal browser behavior.
 
-you can also trigger navigation to a route with the navigate method
+## Navigate from JavaScript
 
-```
-myRouter.navigate('/page2');
-```
-
-## Mediator
-
-Optionally you can use a mediator, such as White Label Mediator, with the router. To do so you would like this:
-
-```
-const MyRoute = class extends Router {
-    constructor() {
-        super();
-
-        // the container element where all views will be placed
-        this.scope = document.querySelector('body');
-
-        this.mediator = myMediator;
-
-        this.routes = {
-            defaultRoute: (scope, locationData) => {
-                //here you would put any view specific logic for the defaultRoute
-                window.console.log('the defaultRoute executed');
-            },
-            '/page2': (scope, locationData) => {
-                //here you would put any view specific logic for the page2 route
-                window.console.log('the page2 route executed');
-            }
-        };
-
-    }
-};
-```
-
-Then anywhere else in the application you want to trigger the router to navigate you could do so like this:
-
-```
-myMediator.emit('router:navigate', {
-    url: '/authentication',
-    message: 'Session expired, please login again.'
+```js
+router.navigate('/products/42', {
+    source: 'featured-products'
 });
 ```
 
-## Scope
+The second argument becomes `location.data.mediator`. Unless the call represents a browser `popstate`, successful navigation adds the URL to browser history.
 
-Optionally you and provide a DOM element to be the scope of the router. That DOM object will then be passed into all your routes as they are executed. To do so you would like this:
+## Location data
 
-```
-const MyRoute = class extends Router {
-    constructor() {
-        super();
+Every route receives the configured `scope` and a location object:
 
-        // the container element where all views will be placed
-        this.scope = document.querySelector('body');
-
-        this.routes = {
-            defaultRoute: (scope, locationData) => {
-                //here you would put any view specific logic for the defaultRoute
-                window.console.log('the defaultRoute executed');
-            },
-            '/page2': (scope, locationData) => {
-                //here you would put any view specific logic for the page2 route
-                window.console.log('the page2 route executed');
-            }
-        };
-
-    }
-};
-```
-
-## Passing Data
-
-The router passes in a location data object to the route that is being executed. Here is an example object passed:
-
-```
+```js
 {
-    url: ['/user'],
+    url: '/products/42?color=blue',
     data: {
-        url: [],
-        mediator: {},
-        query: {}
-    }
-}
-```
-
-'data.url' is an array of values parsed from the url being requested. For Example if the url was '/user/fred' and we defined a route for '/user' then data object passed into the '/user' route would be the following:
-
-```
-{
-    url: ['/user/fred'],
-    data: {
-        url: ['fred'],
-        mediator: {},
-        query: {}
-    }
-}
-```
-
-'data.query' is an object of values parsed from the url query string. For Example if the url was '/user?name=fred' and we defined a route for '/user' then data object passed into the '/user' route would be the following:
-
-```
-{
-    url: ['/user?name=fred'],
-    data: {
-        url: [],
-        mediator: {},
-        query: {
-            name: 'fred'
-        }
-    }
-}
-```
-
-'data.mediator' is an object of values parsed through the optional mediator. For Example if this was emitted through the mediator:
-
-```
-myMediator.emit('router:navigate', {
-    url: '/authentication',
-    message: 'Session expired, please login again.'
-});
-```
-
-Then the location data passed in to the '/authentication' route would be the following:
-
-```
-{
-    url: ['/authentication'],
-    data: {
-        url: [],
+        url: ['42'],
         mediator: {
-            url: '/authentication',
-            message: 'Session expired, please login again.'
+            source: 'featured-products'
+        },
+        query: {
+            color: 'blue'
         }
     }
 }
 ```
 
-## Let's look at an example:
+- `url` is the complete route URL.
+- `data.url` contains path segments after the matched route prefix.
+- `data.mediator` contains the object passed to `navigate()` or received from the mediator.
+- `data.query` contains parsed query values.
 
-import the module
+Values are not URI-decoded by the router. Decode and validate route or query values in application code before using them.
 
-```
-import Router from 'white-label-router';
-```
+## Mediator navigation
 
-extend the router
+Assign an EventEmitter-compatible mediator before initialization:
 
-```
-const myRouter = class extends Router {
-    // this is the constructor. This executed whenever the view is instantiated.
-    constructor() {
+```js
+import Mediator from 'white-label-mediator';
 
-        super();
+const mediator = new Mediator();
+const router = new ApplicationRouter();
+router.mediator = mediator;
+router.initialize();
 
-        // the container element where all views will be placed
-        this.scope = document.querySelector('body');
-
-        this.routes = {
-            defaultRoute: (scope, locationData) => {
-                //here you would put any view specific logic for the defaultRoute
-                window.console.log('the defaultRoute executed');
-            },
-            '/page2': (scope, locationData) => {
-                //here you would put any view specific logic for the page2 route
-                window.console.log('the page2 route executed');
-            }
-        };
-        
-    }
-};
-
+mediator.emit('router:navigate', {
+    url: '/account',
+    reason: 'Session refreshed'
+});
 ```
 
-instantiate your router
+The complete emitted object is passed to the route as `location.data.mediator`. `destroy()` removes the document, window, and mediator listeners. Repeated listener initialization is idempotent and does not add duplicate listeners.
 
+## Lifecycle
+
+| Method | Behavior |
+| --- | --- |
+| `initialize()` | Reads the browser URL, adds listeners, and runs the initial route. |
+| `navigate(url, data, isPopState)` | Matches and runs a route, updates history, and returns the router; returns `false` when blocked or invalid. |
+| `addListeners()` | Adds browser and optional mediator listeners once. |
+| `removeListeners()` | Removes listeners previously added by this router. |
+| `destroy()` | Calls `removeListeners()` and returns the router. |
+
+Call `destroy()` when the router is no longer used:
+
+```js
+router.destroy();
 ```
-const myRouter = new MyRoute();
+
+## Development
+
+```sh
+npm ci
+npm run build
+npm test
+npm run audit
 ```
 
-initialize your router
-
-```
-myRouter.initialize();
-```
-
-navigate to '/page2'
-
-```
-myRouter.navigate('/page2');
-```
-
-In the example above we have set up two routes. The first route 'defaultRoute' is a catch all route. If no other routes match the specified url path this is the route that will be executed. In this example the defaultRoute would be executed for 'http://example.com' or 'http://example.com/home', but not 'http://example.com/page2'.
-
-The second defined route 'page2' will only be executed when the specified url path starts with '/page2', or for example 'http://example.com/page2'.
+The npm package publishes the compiled `dist` file and this README.
