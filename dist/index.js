@@ -1,26 +1,24 @@
 (function (global, factory) {
   if (typeof define === "function" && define.amd) {
-    define(["gator"], factory);
+    define([], factory);
   } else if (typeof exports !== "undefined") {
-    factory(require("gator"));
+    factory();
   } else {
     var mod = {
       exports: {}
     };
-    factory(global.gator);
+    factory();
     global.index = mod.exports;
   }
-})(typeof globalThis !== "undefined" ? globalThis : typeof self !== "undefined" ? self : this, function (_gator) {
+})(typeof globalThis !== "undefined" ? globalThis : typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  _gator = _interopRequireDefault(_gator);
-  function _interopRequireDefault(e) { return e && e.__esModule ? e : { "default": e }; }
   function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
   function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError("Cannot call a class as a function"); }
   function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, "value" in o && (o.writable = !0), Object.defineProperty(e, _toPropertyKey(o.key), o); } }
   function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
   function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
-  function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); } // event delegation lib
+  function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
   (function () {
     'use strict';
 
@@ -58,6 +56,10 @@
 
         // optional mediator placeholder
         this.mediator = false;
+
+        // Stable listener references allow destroy() to release browser resources.
+        this.boundPushStateClick = this.eventPushStateClick.bind(this);
+        this.boundPopState = this.eventPopState.bind(this);
       }
       return _createClass(_class, [{
         key: "initialize",
@@ -81,11 +83,11 @@
         key: "addListeners",
         value: function addListeners() {
           var _this = this;
-          //bind all pushstate links
-          (0, _gator["default"])(document).on('click', 'a[href][data-pushstate]', this.eventPushStateClick.bind(this));
+          // Delegate push-state links from one document listener.
+          document.addEventListener('click', this.boundPushStateClick);
 
           //bind window popstates
-          window.addEventListener('popstate', this.eventPopState.bind(this));
+          window.addEventListener('popstate', this.boundPopState);
 
           //listen to a mediator if present
           if (this.mediator) {
@@ -104,24 +106,25 @@
       }, {
         key: "removeListeners",
         value: function removeListeners() {
-          //unbind all pushstate links
-          (0, _gator["default"])(document).off('click', 'a[href][data-pushstate]');
+          // Unbind the same stable listener objects registered by addListeners().
+          document.removeEventListener('click', this.boundPushStateClick);
 
           //bind window popstates
-          window.removeEventListener('popstate', this.eventPopState.bind(this));
+          window.removeEventListener('popstate', this.boundPopState);
           return this;
         }
       }, {
         key: "eventPushStateClick",
         value: function eventPushStateClick(e) {
+          var source = e.target && (typeof e.target.closest === 'function' ? e.target : e.target.parentElement);
+          var anchor = source && typeof source.closest === 'function' ? source.closest('a[href][data-pushstate]') : null;
+          if (!anchor) {
+            return true;
+          }
           e.preventDefault();
 
-          //for example an image tag can initiate a click event in side an anchor
-          if (e.target.tagName === 'A') {
-            this.url = e.target.getAttribute('href') || '';
-          } else {
-            this.url = e.target.parentNode.getAttribute('href') || '';
-          }
+          // closest() supports nested elements at any depth inside the selected anchor.
+          this.url = anchor.getAttribute('href') || '';
           this.navigate(false, {}, false);
           return this;
         }

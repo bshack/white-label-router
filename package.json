@@ -37,9 +37,6 @@
     "test": "node --test test/*.test.js",
     "audit": "npm audit --audit-level=high"
   },
-  "dependencies": {
-    "gator": "1.2.4"
-  },
   "devDependencies": {
     "@babel/cli": "7.28.3",
     "@babel/core": "7.29.7",
