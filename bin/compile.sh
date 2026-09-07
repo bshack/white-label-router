@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-../node_modules/.bin/babel ../src/index.js --out-file ../dist/index.js
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$project_root"
+
+npm run build
