@@ -8,6 +8,10 @@
 - A browser environment with `window.history`, `window.location`, and standard DOM events at runtime
 - Server fallback configuration that serves the application entry page for client-managed URLs
 
+## Accessibility and indexability
+
+Use real `<a href="...">` links and add `data-pushstate` only as progressive enhancement. This preserves keyboard behavior, context-menu actions, no-JavaScript navigation, and crawler discovery. Every public route needs a directly requestable URL that returns its meaningful HTML, unique title, description, canonical URL, and correct robots policy. Client-only route changes must manage document title and focus deliberately; do not move focus on same-page refinements unless user context requires it.
+
 ## Install and import
 
 ```sh
