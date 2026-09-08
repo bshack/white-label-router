@@ -16,6 +16,7 @@ type RouteHandler = (scope: Element | null, location: LocationData) => unknown;
 /** An object route can own a function or a view lifecycle. */
 interface RouteObject {
     title?: string;
+    focus?: string | false;
     secure?: RouteHandler;
     view?: RouteHandler | {
         initialize?: RouteHandler;
@@ -92,6 +93,12 @@ declare class Router {
      * @returns No value; locationData is updated in place.
      */
     setLocationData(mediatorData?: NavigationData): void;
+    /**
+     * Update page context after a route renders.
+     * @param route - Selected route configuration.
+     * @returns This router after applying title and optional focus.
+     */
+    applyPageContext(route: Route): this;
     /**
      * Select a route, enforce its guard, transition view lifecycles, and update history and title.
      * @param url - URL or optional adapter argument.

@@ -1,6 +1,6 @@
 {
   "name": "white-label-router",
-  "version": "4.0.1",
+  "version": "4.1.0",
   "description": "A simple ES6 JS router",
   "main": "dist/index.js",
   "files": [
@@ -18,7 +18,6 @@
   "contributors": [
     {
       "name": "Bill Shackelford",
-      "email": "bshackelford@gmail.com",
       "url": "https://github.com/bshack"
     }
   ],

@@ -4,7 +4,7 @@ interface NavigationData {url?: string; [key: string]: unknown}
 interface LocationData {url: string; data: {url: string[]; mediator: NavigationData | undefined; query: Record<string, string>}}
 type RouteHandler = (scope: Element | null, location: LocationData) => unknown;
 /** An object route can own a function or a view lifecycle. */
-interface RouteObject {title?: string; secure?: RouteHandler; view?: RouteHandler | {initialize?: RouteHandler; destroy?: RouteHandler}}
+interface RouteObject {title?: string; focus?: string | false; secure?: RouteHandler; view?: RouteHandler | {initialize?: RouteHandler; destroy?: RouteHandler}}
 type Route = RouteHandler | RouteObject;
 /** Minimal event-bus contract required by the router. */
 interface NavigationMediator {
@@ -272,6 +272,28 @@ class Router {
     }
 
     /**
+     * Update page context after a route renders.
+     * @param route - Selected route configuration.
+     * @returns This router after applying title and optional focus.
+     */
+    applyPageContext(route: Route) {
+        if (typeof route === 'function') {
+            this.pageTitle = null;
+            return this;
+        }
+        this.pageTitle = typeof route.title === 'string' ? route.title : null;
+        if (this.pageTitle) document.title = this.pageTitle;
+        if (route.focus !== false) {
+            const target = document.querySelector<HTMLElement>(route.focus || 'main h1');
+            if (target) {
+                if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+                target.focus();
+            }
+        }
+        return this;
+    }
+
+    /**
      * Select a route, enforce its guard, transition view lifecycles, and update history and title.
      * @param url - URL or optional adapter argument.
      * @param mediatorData - Optional caller metadata passed to the route.
@@ -333,13 +355,12 @@ class Router {
                 selected(this.scope, this.locationData);
             } else if (typeof selected.view === 'function') {
                 selected.view(this.scope, this.locationData);
-                this.pageTitle = typeof selected.title === 'string' ? selected.title : null;
             } else if (selected.view && typeof selected.view.initialize === 'function') {
-                this.pageTitle = typeof selected.title === 'string' ? selected.title : null;
                 selected.view.initialize(this.scope, this.locationData);
             } else {
                 return false;
             }
+            this.applyPageContext(selected);
             this.previousRoute = this.route;
         }
 
@@ -350,10 +371,6 @@ class Router {
         }
 
         // since browsers don't support setting the title with pushstate yet
-        if (this.pageTitle) {
-            document.title = this.pageTitle;
-        }
-
         return this;
 
     }

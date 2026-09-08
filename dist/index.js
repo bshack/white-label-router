@@ -194,6 +194,29 @@ class Router {
         this.locationData.data.query = this.parseQueryString(parsedUrl.search);
     }
     /**
+     * Update page context after a route renders.
+     * @param route - Selected route configuration.
+     * @returns This router after applying title and optional focus.
+     */
+    applyPageContext(route) {
+        if (typeof route === 'function') {
+            this.pageTitle = null;
+            return this;
+        }
+        this.pageTitle = typeof route.title === 'string' ? route.title : null;
+        if (this.pageTitle)
+            document.title = this.pageTitle;
+        if (route.focus !== false) {
+            const target = document.querySelector(route.focus || 'main h1');
+            if (target) {
+                if (!target.hasAttribute('tabindex'))
+                    target.setAttribute('tabindex', '-1');
+                target.focus();
+            }
+        }
+        return this;
+    }
+    /**
      * Select a route, enforce its guard, transition view lifecycles, and update history and title.
      * @param url - URL or optional adapter argument.
      * @param mediatorData - Optional caller metadata passed to the route.
@@ -239,15 +262,14 @@ class Router {
             }
             else if (typeof selected.view === 'function') {
                 selected.view(this.scope, this.locationData);
-                this.pageTitle = typeof selected.title === 'string' ? selected.title : null;
             }
             else if (selected.view && typeof selected.view.initialize === 'function') {
-                this.pageTitle = typeof selected.title === 'string' ? selected.title : null;
                 selected.view.initialize(this.scope, this.locationData);
             }
             else {
                 return false;
             }
+            this.applyPageContext(selected);
             this.previousRoute = this.route;
         }
         // make sure to not set pushstate on back button click
@@ -256,9 +278,6 @@ class Router {
             window.history.pushState(this.url, this.pageTitle || '', this.url);
         }
         // since browsers don't support setting the title with pushstate yet
-        if (this.pageTitle) {
-            document.title = this.pageTitle;
-        }
         return this;
     }
 }

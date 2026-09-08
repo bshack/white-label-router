@@ -5,7 +5,7 @@ const Router = require('../dist');
 function browser(t) {
     const history = [];
     global.window = {location: {origin: 'https://example.test', href: 'https://example.test/', pathname: '/', search: ''}, history: {pushState(...args) {history.push(args);}}, addEventListener() {}, removeEventListener() {}};
-    global.document = {title: '', addEventListener() {}, removeEventListener() {}};
+    global.document = {title: '', addEventListener() {}, removeEventListener() {}, querySelector() {return null;}};
     t.after(() => {delete global.window; delete global.document;});
     return history;
 }
@@ -56,6 +56,21 @@ test('route guards, titles, function handlers and lifecycle teardown retain orde
     assert.deepEqual(router.locationData.data.url, ['%E0%A4%A']);
     router.previousRoute = '/empty';
     router.navigate('/object');
+});
+test('page context updates title and focuses the configured target', t => {
+    browser(t);
+    const target = {focused: false, hasAttribute: () => false, setAttribute(name, value) {this[name] = value;}, focus() {this.focused = true;}};
+    document.querySelector = selector => selector === '#title' ? target : null;
+    const router = new Router();
+    assert.equal(router.applyPageContext({title: 'Accessible page', focus: '#title', view() {}}), router);
+    assert.equal(document.title, 'Accessible page');
+    assert.equal(target.tabindex, '-1');
+    assert.equal(target.focused, true);
+    target.hasAttribute = () => true;
+    router.applyPageContext({focus: '#title', view() {}});
+    router.applyPageContext({focus: false, view() {}});
+    router.applyPageContext(() => {});
+    assert.equal(router.pageTitle, null);
 });
 test('click handling preserves browser actions and handles text-node targets', t => {
     browser(t);
