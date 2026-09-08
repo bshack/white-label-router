@@ -235,6 +235,10 @@ This is a major release because the distribution is now CommonJS emitted by Type
 
 ### Verification and coverage
 
+## Tested compatibility
+
+Version 4.1 is tested with model 3.x, mediator 3.x, and view 4.x. The router has no runtime dependency on those packages.
+
 ```sh
 npm ci --ignore-scripts
 npm run typecheck
@@ -248,3 +252,14 @@ npm pack --dry-run
 Tests exercise the compiled JavaScript interface used by downstream callers. Coverage is an execution metric, not proof that all possible inputs or external integrations are correct.
 
 To undo this migration, revert its commit and run `npm ci` from the restored lockfile. No npm release, database migration, or production deployment is performed by these development changes.
+### Page title and focus
+
+Object routes can set a title and move focus after rendering:
+
+```ts
+router.routes = {
+  '/account': {title: 'Account', focus: '#account-title', view: renderAccount}
+};
+```
+
+The default focus selector is `main h1`. Set `focus: false` for an in-page state change that should preserve the user's current focus. A focused element receives `tabindex="-1"` only when it does not already have a tabindex.
