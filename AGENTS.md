@@ -802,6 +802,32 @@ For routine, reversible details that are supported by repository conventions, pr
 
 ---
 
+# 30A. Accessibility and Search Indexability
+
+All applicable code and user-interface changes that an agent suggests or makes must target WCAG 2.2 Level AA conformance and preserve or improve search-engine indexability.
+
+For accessibility, agents must:
+
+- Use semantic HTML and valid landmark, heading, list, table, and form structure.
+- Preserve complete keyboard operation, visible focus, logical focus order, and focus that is not obscured.
+- Provide programmatic names, instructions, errors, status announcements, and text alternatives where applicable.
+- Meet applicable contrast, reflow, zoom, motion, pointer target, and non-pointer input requirements.
+- Prefer native HTML controls and behavior before adding ARIA.
+- Test applicable changes with the repository's automated accessibility checks and document the manual checks needed for criteria automation cannot establish.
+- Never claim full WCAG conformance from automated testing alone; state the target, test scope, and any unverified criteria.
+
+For search indexability, agents must:
+
+- Render meaningful public content and crawlable links in the initial HTML response whenever applicable.
+- Preserve accurate unique titles, descriptions, canonical URLs, headings, robots directives, and structured data.
+- Keep important pages internally discoverable and include them in the sitemap when the project produces one.
+- Ensure robots rules, `noindex`, authentication, client-side routing, or JavaScript do not unintentionally hide public content from search engines.
+- Test generated output for crawlable URLs, metadata, canonical consistency, sitemap coverage, and the absence of unintended indexing blocks.
+
+If a requested product is private, authenticated, duplicated, or intentionally excluded from search, document that exception and implement the correct explicit indexing policy rather than forcing public indexing.
+
+---
+
 # 31. Definition of Done
 
 Before declaring a task complete, verify all applicable items:
@@ -827,6 +853,8 @@ Before declaring a task complete, verify all applicable items:
 - [ ] Formatting was verified.
 - [ ] Build/type checks were run when applicable.
 - [ ] Security considerations were reviewed.
+- [ ] Applicable changes target WCAG 2.2 Level AA and automated plus required manual accessibility verification was completed or explicitly documented.
+- [ ] Applicable public content is search-engine indexable, with rendered-content, metadata, canonical, robots, crawlable-link, and sitemap checks completed.
 - [ ] Supported platform and runtime compatibility was reviewed when applicable.
 - [ ] The complete diff was reviewed.
 - [ ] No secrets or sensitive information were introduced.
