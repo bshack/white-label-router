@@ -80,13 +80,13 @@ class Router {
     initialize() {
 
         //get the url fragment w/query string
-        this.url = window.location.pathname + window.location.search;
+        this.url = window.location.pathname + window.location.search + (window.location.hash || '');
 
         // set up the events
         this.addListeners();
 
         // navigate to correct view
-        this.navigate(false, {}, false);
+        this.navigate(false, {}, true);
 
         return this;
 
@@ -215,7 +215,8 @@ class Router {
      */
     eventPopState(e: PopStateEvent) {
 
-        this.url = (e.state || '');
+        // History state belongs to the embedding application; the URL is authoritative.
+        this.url = window.location.pathname + window.location.search + (window.location.hash || '');
 
         this.navigate(false, {}, true);
 
