@@ -263,3 +263,7 @@ router.routes = {
 ```
 
 The default focus selector is `main h1`. Set `focus: false` for an in-page state change that should preserve the user's current focus. A focused element receives `tabindex="-1"` only when it does not already have a tabindex.
+
+## Unreleased navigation fixes
+
+Initialization dispatches the current URL without adding a duplicate history entry. Back/forward navigation reads `window.location` (path, query, and hash), including when history state is null or belongs to another application. History state is not the authoritative URL.
