@@ -12,6 +12,14 @@
 
 Use real `<a href="...">` links and add `data-pushstate` only as progressive enhancement. This preserves keyboard behavior, context-menu actions, no-JavaScript navigation, and crawler discovery. Every public route needs a directly requestable URL that returns its meaningful HTML, unique title, description, canonical URL, and correct robots policy. Client-only route changes must manage document title and focus deliberately; do not move focus on same-page refinements unless user context requires it.
 
+## Versioning policy
+
+Backward compatibility is not maintained through sentinel arguments, optional adapter methods, aliases, or runtime fallbacks. Breaking public API changes are communicated with a Semantic Versioning major release and documented migration notes.
+
+### Version 5 migration
+
+`navigate()` no longer accepts `false` as a sentinel URL; omit the URL or pass `undefined` when routing the current URL. A configured mediator must provide both `on()` and `removeListener()` so router teardown can always release its subscription. No compatibility adapters are retained.
+
 ## Install and import
 
 ```sh

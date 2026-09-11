@@ -60,7 +60,7 @@ class Router {
         // set up the events
         this.addListeners();
         // navigate to correct view
-        this.navigate(false, {}, true);
+        this.navigate(undefined, {}, true);
         return this;
     }
     /**
@@ -102,7 +102,7 @@ class Router {
         document.removeEventListener('click', this.boundPushStateClick);
         //bind window popstates
         window.removeEventListener('popstate', this.boundPopState);
-        if (this.mediator && typeof this.mediator.removeListener === 'function') {
+        if (this.mediator) {
             this.mediator.removeListener('router:navigate', this.boundMediatorNavigate);
         }
         this.listenersInitialized = false;
@@ -139,7 +139,7 @@ class Router {
         e.preventDefault();
         // closest() supports nested elements at any depth inside the selected anchor.
         this.url = `${location.pathname}${location.search}${location.hash}`;
-        this.navigate(false, {}, false);
+        this.navigate(undefined, {}, false);
         return this;
     }
     /**
@@ -150,7 +150,7 @@ class Router {
     eventPopState(e) {
         // History state belongs to the embedding application; the URL is authoritative.
         this.url = window.location.pathname + window.location.search + (window.location.hash || '');
-        this.navigate(false, {}, true);
+        this.navigate(undefined, {}, true);
         return this;
     }
     /**

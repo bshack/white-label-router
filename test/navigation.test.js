@@ -26,7 +26,7 @@ test('default route initializes, reinitializes, and handles browser back without
     assert.equal(router.url, '/previous?q=1#section');
     assert.equal(history.length, 1);
     router.destroy();
-    router.mediator = {on() {}};
+    router.mediator = {on() {}, removeListener() {}};
     router.addListeners(); router.removeListeners();
     router.boundMediatorNavigate();
     router.boundMediatorNavigate({url: '/mediator'});
