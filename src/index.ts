@@ -283,11 +283,11 @@ class Router {
             return this;
         }
         this.pageTitle = typeof route.title === 'string' ? route.title : null;
-        if (this.pageTitle) document.title = this.pageTitle;
+        if (this.pageTitle) {document.title = this.pageTitle;}
         if (route.focus !== false) {
             const target = document.querySelector<HTMLElement>(route.focus || 'main h1');
             if (target) {
-                if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+                if (!target.hasAttribute('tabindex')) {target.setAttribute('tabindex', '-1');}
                 target.focus();
             }
         }
@@ -317,7 +317,7 @@ class Router {
         const pathname = new URL(this.url, window.location.origin).pathname;
 
         // Match complete path segments so /page2 does not also match /page23.
-        for (let route in this.routes) {
+        for (const route in this.routes) {
 
             if (
                 route !== 'defaultRoute' &&
@@ -343,7 +343,7 @@ class Router {
         }
 
         if (this.route) {
-            const selected = this.routes[this.route];
+            const selected = this.routes[this.route]!;
             if (typeof selected !== 'function' && selected.secure &&
                 selected.secure(this.scope, this.locationData) !== true) {
                 return false;
