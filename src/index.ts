@@ -9,7 +9,7 @@ type Route = RouteHandler | RouteObject;
 /** Minimal event-bus contract required by the router. */
 interface NavigationMediator {
     on(event: string, callback: (data?: NavigationData) => unknown): unknown;
-    removeListener?(event: string, callback: (data?: NavigationData) => unknown): unknown;
+    removeListener(event: string, callback: (data?: NavigationData) => unknown): unknown;
 }
 /** History API router with ordered path-boundary matching. */
 class Router {
@@ -86,7 +86,7 @@ class Router {
         this.addListeners();
 
         // navigate to correct view
-        this.navigate(false, {}, true);
+        this.navigate(undefined, {}, true);
 
         return this;
 
@@ -146,7 +146,7 @@ class Router {
         //bind window popstates
         window.removeEventListener('popstate', this.boundPopState);
 
-        if (this.mediator && typeof this.mediator.removeListener === 'function') {
+        if (this.mediator) {
             this.mediator.removeListener('router:navigate', this.boundMediatorNavigate);
         }
 
@@ -202,7 +202,7 @@ class Router {
         // closest() supports nested elements at any depth inside the selected anchor.
         this.url = `${location.pathname}${location.search}${location.hash}`;
 
-        this.navigate(false, {}, false);
+        this.navigate(undefined, {}, false);
 
         return this;
 
@@ -218,7 +218,7 @@ class Router {
         // History state belongs to the embedding application; the URL is authoritative.
         this.url = window.location.pathname + window.location.search + (window.location.hash || '');
 
-        this.navigate(false, {}, true);
+        this.navigate(undefined, {}, true);
 
         return this;
 
@@ -301,7 +301,7 @@ class Router {
      * @param isPopState - Whether navigation came from browser history.
      * @returns False when a guard or route rejects navigation; otherwise this router.
      */
-    navigate(url?: string | false, mediatorData?: NavigationData, isPopState = false) {
+    navigate(url?: string, mediatorData?: NavigationData, isPopState = false) {
 
         // allow navigate to use a specified url
         if (url) {

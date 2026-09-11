@@ -27,7 +27,7 @@ type Route = RouteHandler | RouteObject;
 /** Minimal event-bus contract required by the router. */
 interface NavigationMediator {
     on(event: string, callback: (data?: NavigationData) => unknown): unknown;
-    removeListener?(event: string, callback: (data?: NavigationData) => unknown): unknown;
+    removeListener(event: string, callback: (data?: NavigationData) => unknown): unknown;
 }
 /** History API router with ordered path-boundary matching. */
 declare class Router {
@@ -106,7 +106,7 @@ declare class Router {
      * @param isPopState - Whether navigation came from browser history.
      * @returns False when a guard or route rejects navigation; otherwise this router.
      */
-    navigate(url?: string | false, mediatorData?: NavigationData, isPopState?: boolean): false | this;
+    navigate(url?: string, mediatorData?: NavigationData, isPopState?: boolean): false | this;
 }
 /** Public route configuration and navigation payload types. */
 declare namespace Router {
