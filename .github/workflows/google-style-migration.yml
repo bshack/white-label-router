@@ -41,11 +41,16 @@ jobs:
             js.configs.recommended,
             ...tseslint.configs.recommended,
             ...tseslint.configs.stylistic,
-            {files: ['**/*.ts', '**/*.tsx'], rules: {curly: ['error', 'all'], eqeqeq: ['error', 'always'], 'no-eval': 'error', 'no-implied-eval': 'error', 'no-new-wrappers': 'error', 'no-var': 'error', 'object-shorthand': ['error', 'always'], 'prefer-arrow-callback': ['error', {allowNamedFunctions: true}], 'prefer-const': 'error', 'prefer-template': 'error', 'quote-props': ['error', 'as-needed'], '@typescript-eslint/array-type': ['error', {default: 'array-simple'}], '@typescript-eslint/consistent-type-assertions': ['error', {assertionStyle: 'as'}], '@typescript-eslint/consistent-type-exports': 'error', '@typescript-eslint/consistent-type-imports': ['error', {prefer: 'type-imports'}], '@typescript-eslint/no-explicit-any': 'error', '@typescript-eslint/no-non-null-assertion': 'error'}}
+            {files: ['**/*.ts', '**/*.tsx'], rules: {curly: ['error', 'all'], eqeqeq: ['error', 'always'], 'no-eval': 'error', 'no-implied-eval': 'error', 'no-new-wrappers': 'error', 'no-var': 'error', 'object-shorthand': ['error', 'always'], 'prefer-arrow-callback': ['error', {allowNamedFunctions: true}], 'prefer-const': 'error', 'prefer-template': 'error', 'quote-props': ['error', 'as-needed'], '@typescript-eslint/array-type': ['error', {default: 'array-simple'}], '@typescript-eslint/consistent-type-assertions': ['error', {assertionStyle: 'as'}], '@typescript-eslint/consistent-type-imports': ['error', {prefer: 'type-imports'}], '@typescript-eslint/no-explicit-any': 'error', '@typescript-eslint/no-non-null-assertion': 'error'}}
           );
           EOF
           cat > .prettierrc.json <<'EOF'
           {"bracketSpacing":false,"singleQuote":true,"trailingComma":"all","arrowParens":"avoid"}
+          EOF
+          cat > .prettierignore <<'EOF'
+          dist/
+          node_modules/
+          coverage/
           EOF
           cat > STYLE.md <<'EOF'
           # Code style
@@ -57,7 +62,7 @@ jobs:
           - Run `npm run lint` to verify style and lint rules.
           - Run `npm run lint:fix` to apply safe automatic fixes.
           - Do not suppress warnings or disable rules simply to make CI pass; fix the underlying code unless a narrowly documented exception is technically required.
-          - Generated output under `dist/` is not linted directly; it is regenerated from linted source.
+          - Generated output under `dist/` is not linted or formatted directly; it is regenerated from linted source.
           EOF
       - run: npm run lint:fix
       - run: npm run lint
