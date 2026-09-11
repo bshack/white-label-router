@@ -1,0 +1,83 @@
+name: Google style migration
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install Google TypeScript Style and ESLint
+        run: npm install --save-dev --save-exact eslint@9.39.5 gts@7.0.0 --ignore-scripts
+      - name: Add lint scripts and configuration
+        shell: bash
+        run: |
+          npm pkg set 'scripts.lint=eslint "**/*.ts"' 'scripts.lint:fix=eslint --fix "**/*.ts"'
+          cat > eslint.config.cjs <<'EOF'
+          'use strict';
+
+          module.exports = [
+            {
+              ignores: ['dist/**', 'node_modules/**', 'coverage/**'],
+            },
+            ...require('gts'),
+          ];
+          EOF
+          cat > STYLE.md <<'EOF'
+          # Code style
+
+          This project follows Google TypeScript Style through `gts` and ESLint.
+
+          - Run `npm run lint` to verify the codebase.
+          - Run `npm run lint:fix` to apply safe automatic style fixes.
+          - Do not disable lint rules merely to make CI pass; fix the underlying code unless a narrowly documented exception is technically required.
+          - Generated output under `dist/` is not linted directly; it is regenerated from linted TypeScript source.
+          EOF
+      - name: Apply Google style
+        run: npm run lint:fix
+      - name: Verify Google style
+        run: npm run lint
+      - name: Rebuild generated output
+        run: npm run build
+      - name: Add lint to permanent CI
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const candidates = ['.github/workflows/security.yml', '.github/workflows/ci.yml'];
+          const file = candidates.find(candidate => fs.existsSync(candidate));
+          if (!file) throw new Error('No permanent CI workflow found');
+          let source = fs.readFileSync(file, 'utf8');
+          if (!source.includes('npm run lint')) {
+            const marker = '      - run: npm ci --ignore-scripts\n';
+            if (!source.includes(marker)) throw new Error('npm ci step not found in permanent CI');
+            source = source.replace(marker, marker + '      - run: npm run lint\n');
+            fs.writeFileSync(file, source);
+          }
+          NODE
+      - name: Remove one-time migration workflow
+        run: rm .github/workflows/google-style-migration.yml
+      - name: Commit migration
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -A
+            git commit -m "Adopt Google TypeScript Style with ESLint"
+            git push
+          fi
