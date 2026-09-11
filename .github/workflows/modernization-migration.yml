@@ -2,8 +2,7 @@ name: Modernization migration
 
 on:
   push:
-    branches:
-      - chore/modernize-tooling-20260912
+    branches: [chore/modernize-tooling-20260912]
 
 permissions:
   contents: write
@@ -21,7 +20,7 @@ jobs:
         with:
           node-version: 24.21.0
           cache: npm
-      - name: Modernize package and TypeScript configuration
+      - name: Modernize configuration
         shell: bash
         run: |
           node <<'NODE'
@@ -37,111 +36,34 @@ jobs:
           const ts = JSON.parse(fs.readFileSync('tsconfig.json', 'utf8'));
           Object.assign(ts.compilerOptions, {noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true, noImplicitOverride: true, noFallthroughCasesInSwitch: true, noImplicitReturns: true});
           fs.writeFileSync('tsconfig.json', JSON.stringify(ts, null, 2) + '\n');
+          let source = fs.readFileSync('src/index.ts', 'utf8');
+          source = source.replace('            const selected = this.routes[this.route];\n', '            const selected = this.routes[this.route];\n            if (!selected) return false;\n');
+          fs.writeFileSync('src/index.ts', source);
           NODE
           cat > eslint.config.mjs <<'EOF'
           import babelParser from '@babel/eslint-parser';
           import js from '@eslint/js';
-
           export default [
             {ignores: ['dist/**', 'coverage/**', 'node_modules/**']},
-            {
-              files: ['src/**/*.ts'],
-              languageOptions: {
-                parser: babelParser,
-                parserOptions: {
-                  requireConfigFile: false,
-                  sourceType: 'unambiguous',
-                  babelOptions: {presets: ['@babel/preset-typescript']},
-                },
-              },
-              rules: {
-                ...js.configs.recommended.rules,
-                'no-undef': 'off',
-                'no-unused-vars': 'off',
-                curly: ['error', 'all'],
-                eqeqeq: ['error', 'always'],
-                'no-eval': 'error',
-                'no-implied-eval': 'error',
-                'no-new-wrappers': 'error',
-                'no-var': 'error',
-                'prefer-const': 'error',
-              },
-            },
+            {files: ['src/**/*.ts'], languageOptions: {parser: babelParser, parserOptions: {requireConfigFile: false, sourceType: 'unambiguous', babelOptions: {presets: ['@babel/preset-typescript']}}}, rules: {...js.configs.recommended.rules, 'no-undef': 'off', 'no-unused-vars': 'off', curly: ['error', 'all'], eqeqeq: ['error', 'always'], 'no-eval': 'error', 'no-implied-eval': 'error', 'no-new-wrappers': 'error', 'no-var': 'error', 'prefer-const': 'error'}},
           ];
           EOF
-          mkdir -p .github
           cat > .github/dependabot.yml <<'EOF'
           version: 2
           updates:
             - package-ecosystem: npm
               directory: /
-              schedule:
-                interval: weekly
-                day: monday
-                time: "09:00"
-                timezone: America/New_York
+              schedule: {interval: weekly, day: monday, time: "09:00", timezone: America/New_York}
               open-pull-requests-limit: 10
               groups:
-                production-dependencies:
-                  dependency-type: production
-                  update-types: [minor, patch]
-                development-dependencies:
-                  dependency-type: development
-                  update-types: [minor, patch]
+                production-dependencies: {dependency-type: production, update-types: [minor, patch]}
+                development-dependencies: {dependency-type: development, update-types: [minor, patch]}
             - package-ecosystem: github-actions
               directory: /
-              schedule:
-                interval: weekly
-                day: monday
-                time: "09:15"
-                timezone: America/New_York
+              schedule: {interval: weekly, day: monday, time: "09:15", timezone: America/New_York}
               groups:
-                github-actions:
-                  patterns: ["*"]
+                github-actions: {patterns: ["*"]}
           EOF
-          cat > .github/workflows/publish.yml <<'EOF'
-          name: Publish package
-
-          on:
-            release:
-              types: [published]
-
-          permissions:
-            contents: read
-            id-token: write
-
-          jobs:
-            publish:
-              runs-on: ubuntu-latest
-              timeout-minutes: 10
-              steps:
-                - uses: actions/checkout@v7
-                  with:
-                    persist-credentials: false
-                - uses: actions/setup-node@v7
-                  with:
-                    node-version: 24.21.0
-                    cache: npm
-                    registry-url: https://registry.npmjs.org
-                - run: npm ci --ignore-scripts
-                - run: npm run lint
-                - run: npm run typecheck
-                - run: npm test
-                - run: npm run coverage
-                - run: npm run audit
-                - run: npm publish --provenance --access public
-          EOF
-          node <<'NODE'
-          const fs = require('node:fs');
-          const file = '.github/workflows/security.yml';
-          let source = fs.readFileSync(file, 'utf8');
-          source = source.replace(/actions\/checkout@v\d+/g, 'actions/checkout@v7');
-          source = source.replace(/actions\/setup-node@v\d+/g, 'actions/setup-node@v7');
-          source = source.replace(/node-version:\s*[^\n]+/g, 'node-version: 24.21.0');
-          if (!source.includes('npm run lint')) source = source.replace('      - run: npm ci --ignore-scripts\n', '      - run: npm ci --ignore-scripts\n      - run: npm run lint\n');
-          source = source.replace(/npm audit --audit-level=high/g, 'npm run audit');
-          fs.writeFileSync(file, source);
-          NODE
       - run: npm install --ignore-scripts
       - run: npm run lint:fix
       - run: npm run lint
@@ -150,12 +72,11 @@ jobs:
       - run: npm run coverage
       - run: npm run audit
       - run: npm pack --dry-run
-      - run: rm .github/workflows/modernization-migration.yml
-      - name: Commit modernization
+      - name: Commit modernization data
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
+          git add package.json package-lock.json tsconfig.json eslint.config.mjs .github/dependabot.yml src dist
           git diff --cached --quiet || git commit -m "Modernize project tooling and package metadata"
           git push
