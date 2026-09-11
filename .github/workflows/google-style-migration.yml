@@ -21,38 +21,47 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - name: Install Google TypeScript Style and ESLint
-        run: npm install --save-dev --save-exact eslint@9.39.5 gts@7.0.0 --ignore-scripts
-      - name: Add lint scripts and configuration
+      - name: Configure current lint tooling
         shell: bash
         run: |
-          npm pkg set 'scripts.lint=eslint "**/*.ts"' 'scripts.lint:fix=eslint --fix "**/*.ts"'
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.scripts = {...pkg.scripts, lint: 'npm run format:check && eslint "**/*.{ts,tsx}"', 'lint:fix': 'prettier --write "**/*.{ts,tsx}" && eslint --fix "**/*.{ts,tsx}"', 'format:check': 'prettier --check "**/*.{ts,tsx}"'};
+          pkg.devDependencies = {...pkg.devDependencies, '@eslint/js': '10.0.1', '@typescript/native': 'npm:typescript@7.0.2', eslint: '10.10.0', prettier: '3.9.5', typescript: 'npm:@typescript/typescript6@6.0.2', 'typescript-eslint': '8.70.0'};
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          NODE
+          npm install --ignore-scripts
           cat > eslint.config.cjs <<'EOF'
           'use strict';
-
-          module.exports = [
-            {
-              ignores: ['dist/**', 'node_modules/**', 'coverage/**'],
-            },
-            ...require('gts'),
-          ];
+          const js = require('@eslint/js');
+          const tseslint = require('typescript-eslint');
+          module.exports = tseslint.config(
+            {ignores: ['dist/**', 'node_modules/**', 'coverage/**']},
+            js.configs.recommended,
+            ...tseslint.configs.recommended,
+            ...tseslint.configs.stylistic,
+            {files: ['**/*.ts', '**/*.tsx'], rules: {curly: ['error', 'all'], eqeqeq: ['error', 'always'], 'no-eval': 'error', 'no-implied-eval': 'error', 'no-new-wrappers': 'error', 'no-var': 'error', 'object-shorthand': ['error', 'always'], 'prefer-arrow-callback': ['error', {allowNamedFunctions: true}], 'prefer-const': 'error', 'prefer-template': 'error', 'quote-props': ['error', 'as-needed'], '@typescript-eslint/array-type': ['error', {default: 'array-simple'}], '@typescript-eslint/consistent-type-assertions': ['error', {assertionStyle: 'as'}], '@typescript-eslint/consistent-type-exports': 'error', '@typescript-eslint/consistent-type-imports': ['error', {prefer: 'type-imports'}], '@typescript-eslint/no-explicit-any': 'error', '@typescript-eslint/no-non-null-assertion': 'error'}}
+          );
+          EOF
+          cat > .prettierrc.json <<'EOF'
+          {"bracketSpacing":false,"singleQuote":true,"trailingComma":"all","arrowParens":"avoid"}
           EOF
           cat > STYLE.md <<'EOF'
           # Code style
 
-          This project follows Google TypeScript Style through `gts` and ESLint.
+          This project follows the Google TypeScript Style Guide. ESLint enforces correctness and TypeScript style rules, while Prettier uses Google's published GTS formatting choices.
 
-          - Run `npm run lint` to verify the codebase.
-          - Run `npm run lint:fix` to apply safe automatic style fixes.
-          - Do not disable lint rules merely to make CI pass; fix the underlying code unless a narrowly documented exception is technically required.
-          - Generated output under `dist/` is not linted directly; it is regenerated from linted TypeScript source.
+          TypeScript 7 remains the build compiler. The TypeScript 6 compatibility API is installed side-by-side for lint tooling, following the TypeScript 7 release guidance until the lint ecosystem moves to the TypeScript 7 API.
+
+          - Run `npm run lint` to verify style and lint rules.
+          - Run `npm run lint:fix` to apply safe automatic fixes.
+          - Do not suppress warnings or disable rules simply to make CI pass; fix the underlying code unless a narrowly documented exception is technically required.
+          - Generated output under `dist/` is not linted directly; it is regenerated from linted source.
           EOF
-      - name: Apply Google style
-        run: npm run lint:fix
-      - name: Verify Google style
-        run: npm run lint
-      - name: Rebuild generated output
-        run: npm run build
+      - run: npm run lint:fix
+      - run: npm run lint
+      - run: npm run build
       - name: Add lint to permanent CI
         shell: bash
         run: |
@@ -69,8 +78,7 @@ jobs:
             fs.writeFileSync(file, source);
           }
           NODE
-      - name: Remove one-time migration workflow
-        run: rm .github/workflows/google-style-migration.yml
+      - run: rm .github/workflows/google-style-migration.yml
       - name: Commit migration
         shell: bash
         run: |
