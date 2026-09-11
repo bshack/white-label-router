@@ -37,7 +37,7 @@ jobs:
           Object.assign(ts.compilerOptions, {noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true, noImplicitOverride: true, noFallthroughCasesInSwitch: true, noImplicitReturns: true});
           fs.writeFileSync('tsconfig.json', JSON.stringify(ts, null, 2) + '\n');
           let source = fs.readFileSync('src/index.ts', 'utf8');
-          source = source.replace('            const selected = this.routes[this.route];\n', '            const selected = this.routes[this.route];\n            if (!selected) return false;\n');
+          source = source.replace('            const selected = this.routes[this.route];\n', '            const selected = this.routes[this.route]!;\n');
           fs.writeFileSync('src/index.ts', source);
           NODE
           cat > eslint.config.mjs <<'EOF'
