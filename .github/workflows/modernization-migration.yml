@@ -32,23 +32,30 @@ jobs:
           pkg.engines = {node: '^22.18.0 || >=24.11.0', npm: '>=11.0'};
           pkg.packageManager = 'npm@11.19.1';
           pkg.scripts = {...pkg.scripts, lint: 'eslint "src/**/*.ts" --max-warnings=0', 'lint:fix': 'npm run lint -- --fix'};
-          pkg.devDependencies = {...pkg.devDependencies, '@eslint/js': '10.0.1', eslint: '10.10.0', 'typescript-eslint': '8.70.0'};
+          pkg.devDependencies = {...pkg.devDependencies, '@babel/core': '8.0.5', '@babel/eslint-parser': '8.0.5', '@babel/preset-typescript': '8.0.1', '@eslint/js': '10.0.1', eslint: '10.10.0'};
           fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           const ts = JSON.parse(fs.readFileSync('tsconfig.json', 'utf8'));
           Object.assign(ts.compilerOptions, {noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true, noImplicitOverride: true, noFallthroughCasesInSwitch: true, noImplicitReturns: true});
           fs.writeFileSync('tsconfig.json', JSON.stringify(ts, null, 2) + '\n');
           NODE
           cat > eslint.config.mjs <<'EOF'
+          import babelParser from '@babel/eslint-parser';
           import js from '@eslint/js';
-          import tseslint from 'typescript-eslint';
 
-          export default tseslint.config(
+          export default [
             {ignores: ['dist/**', 'coverage/**', 'node_modules/**']},
-            js.configs.recommended,
-            ...tseslint.configs.recommended,
             {
               files: ['src/**/*.ts'],
+              languageOptions: {
+                parser: babelParser,
+                parserOptions: {
+                  requireConfigFile: false,
+                  sourceType: 'unambiguous',
+                  babelOptions: {presets: ['@babel/preset-typescript']},
+                },
+              },
               rules: {
+                ...js.configs.recommended.rules,
                 curly: ['error', 'all'],
                 eqeqeq: ['error', 'always'],
                 'no-eval': 'error',
@@ -56,10 +63,9 @@ jobs:
                 'no-new-wrappers': 'error',
                 'no-var': 'error',
                 'prefer-const': 'error',
-                '@typescript-eslint/consistent-type-imports': ['error', {prefer: 'type-imports'}],
               },
             },
-          );
+          ];
           EOF
           mkdir -p .github
           cat > .github/dependabot.yml <<'EOF'
