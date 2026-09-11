@@ -32,7 +32,8 @@ for (const directory of ['test', 'test-types']) {
         const before = fs.readFileSync(file, 'utf8');
         const after = before
             .split('.navigate(false,').join('.navigate(undefined,')
-            .split('navigate(false,').join('navigate(undefined,');
+            .split('navigate(false,').join('navigate(undefined,')
+            .split('router.mediator = {on() {}};').join('router.mediator = {on() {}, removeListener() {}};');
         if (after !== before) fs.writeFileSync(file, after);
     }
 }
