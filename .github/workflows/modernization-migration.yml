@@ -1,0 +1,152 @@
+name: Modernization migration
+
+on:
+  push:
+    branches:
+      - chore/modernize-tooling-20260912
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: chore/modernize-tooling-20260912
+          persist-credentials: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.21.0
+          cache: npm
+      - name: Modernize package and TypeScript configuration
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.types = pkg.types || 'dist/index.d.ts';
+          pkg.exports = {'.': {types: `./${pkg.types}`, require: `./${pkg.main}`, default: `./${pkg.main}`}};
+          pkg.engines = {node: '^22.18.0 || >=24.11.0', npm: '>=11.0'};
+          pkg.packageManager = 'npm@11.19.1';
+          pkg.scripts = {...pkg.scripts, lint: 'eslint "src/**/*.ts" --max-warnings=0', 'lint:fix': 'npm run lint -- --fix'};
+          pkg.devDependencies = {...pkg.devDependencies, '@eslint/js': '10.0.1', eslint: '10.10.0', 'typescript-eslint': '8.70.0'};
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          const ts = JSON.parse(fs.readFileSync('tsconfig.json', 'utf8'));
+          Object.assign(ts.compilerOptions, {noUncheckedIndexedAccess: true, exactOptionalPropertyTypes: true, noImplicitOverride: true, noFallthroughCasesInSwitch: true, noImplicitReturns: true});
+          fs.writeFileSync('tsconfig.json', JSON.stringify(ts, null, 2) + '\n');
+          NODE
+          cat > eslint.config.mjs <<'EOF'
+          import js from '@eslint/js';
+          import tseslint from 'typescript-eslint';
+
+          export default tseslint.config(
+            {ignores: ['dist/**', 'coverage/**', 'node_modules/**']},
+            js.configs.recommended,
+            ...tseslint.configs.recommended,
+            {
+              files: ['src/**/*.ts'],
+              rules: {
+                curly: ['error', 'all'],
+                eqeqeq: ['error', 'always'],
+                'no-eval': 'error',
+                'no-implied-eval': 'error',
+                'no-new-wrappers': 'error',
+                'no-var': 'error',
+                'prefer-const': 'error',
+                '@typescript-eslint/consistent-type-imports': ['error', {prefer: 'type-imports'}],
+              },
+            },
+          );
+          EOF
+          mkdir -p .github
+          cat > .github/dependabot.yml <<'EOF'
+          version: 2
+          updates:
+            - package-ecosystem: npm
+              directory: /
+              schedule:
+                interval: weekly
+                day: monday
+                time: "09:00"
+                timezone: America/New_York
+              open-pull-requests-limit: 10
+              groups:
+                production-dependencies:
+                  dependency-type: production
+                  update-types: [minor, patch]
+                development-dependencies:
+                  dependency-type: development
+                  update-types: [minor, patch]
+            - package-ecosystem: github-actions
+              directory: /
+              schedule:
+                interval: weekly
+                day: monday
+                time: "09:15"
+                timezone: America/New_York
+              groups:
+                github-actions:
+                  patterns: ["*"]
+          EOF
+          cat > .github/workflows/publish.yml <<'EOF'
+          name: Publish package
+
+          on:
+            release:
+              types: [published]
+
+          permissions:
+            contents: read
+            id-token: write
+
+          jobs:
+            publish:
+              runs-on: ubuntu-latest
+              timeout-minutes: 10
+              steps:
+                - uses: actions/checkout@v7
+                  with:
+                    persist-credentials: false
+                - uses: actions/setup-node@v7
+                  with:
+                    node-version: 24.21.0
+                    cache: npm
+                    registry-url: https://registry.npmjs.org
+                - run: npm ci --ignore-scripts
+                - run: npm run lint
+                - run: npm run typecheck
+                - run: npm test
+                - run: npm run coverage
+                - run: npm run audit
+                - run: npm publish --provenance --access public
+          EOF
+          node <<'NODE'
+          const fs = require('node:fs');
+          const file = '.github/workflows/security.yml';
+          let source = fs.readFileSync(file, 'utf8');
+          source = source.replace(/actions\/checkout@v\d+/g, 'actions/checkout@v7');
+          source = source.replace(/actions\/setup-node@v\d+/g, 'actions/setup-node@v7');
+          source = source.replace(/node-version:\s*[^\n]+/g, 'node-version: 24.21.0');
+          if (!source.includes('npm run lint')) source = source.replace('      - run: npm ci --ignore-scripts\n', '      - run: npm ci --ignore-scripts\n      - run: npm run lint\n');
+          source = source.replace(/npm audit --audit-level=high/g, 'npm run audit');
+          fs.writeFileSync(file, source);
+          NODE
+      - run: npm install --ignore-scripts
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run coverage
+      - run: npm run audit
+      - run: npm pack --dry-run
+      - run: rm .github/workflows/modernization-migration.yml
+      - name: Commit modernization
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Modernize project tooling and package metadata"
+          git push
