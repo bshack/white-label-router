@@ -4,7 +4,7 @@
 
 History API routing with progressive link enhancement, route guards, and view lifecycles.
 
-Verified against `package.json`, `README.md`, and `.github/workflows/security.yml` on September 9, 2026. Recheck those files when commands or supported environments change.
+Verified against `package.json`, `README.md`, and `.github/workflows/security.yml` on September 11, 2026. Recheck those files when commands or supported environments change.
 
 ## Code map
 
@@ -12,10 +12,11 @@ Verified against `package.json`, `README.md`, and `.github/workflows/security.ym
 
 ## Toolchain and checks
 
-Use npm >=10.0 and Node.js `^22.18.0 || >=24.11.0`; CI uses Node 24. Run from the repository root:
+Use npm >=11.0 and Node.js `^22.18.0 || >=24.11.0`; CI uses Node 24. Run from the repository root:
 
 ```sh
 npm ci --ignore-scripts
+npm run lint
 npm run typecheck
 npm test
 npm run coverage
@@ -24,7 +25,7 @@ npm run audit
 
 `npm test` builds implementation code, checks consumer types, and runs Node tests. `npm run coverage` enforces 100% statements, branches, functions, and lines per included implementation file. CI also runs `npm run build` and `git diff --exit-code -- dist` to detect committed-output drift.
 
-No dedicated lint or format script is defined in the reviewed manifest. Inspect existing configuration before adding tools; report unperformed checks accurately.
+ESLint is configured through `eslint.config.mjs`; run `npm run lint` and treat warnings as failures. No dedicated formatter script is configured.
 
 For one Node test file, first run `npm run build`, then `node --test test/path-to-existing.test.js`. Substitute an existing file; this focused run does not replace the complete suite.
 
@@ -567,7 +568,7 @@ Before an approved database change, explain:
 - Whether it is reversible
 - How it will be tested
 
-Database and schema changes must account for mixed-version deployments when applicable. Prefer backward-compatible, staged migrations. Document deployment ordering, rollback limitations, data backfills, locking risks, expected runtime impact, and recovery procedures.
+Database and schema changes must prioritize safe deployment, data integrity, and recovery. Do not retain old application contracts solely for mixed-version compatibility unless an explicit deployment requirement demands it. Document deployment ordering, rollback limitations, data backfills, locking risks, expected runtime impact, and recovery procedures.
 
 ---
 
@@ -626,11 +627,11 @@ When modifying existing:
 - Data structures
 - Public behavior
 
-preserve backward compatibility unless a breaking change is explicitly requested.
+do not preserve backward compatibility through aliases, deprecated signatures, fallback code paths, adapters, or other compatibility shims. When the current contract requires an incompatible public change, implement the clean current API and communicate it with a Semantic Versioning major release and migration notes.
 
-Identify unavoidable breaking changes before implementation.
+Identify breaking changes before implementation.
 
-Clearly document any required migration or compatibility considerations.
+Clearly document required migration considerations.
 
 Determine relevant supported browsers, operating systems, language runtimes, database versions, and deployment targets from repository evidence. Do not use unsupported platform features without an established transpilation, polyfill, fallback, or migration path.
 
