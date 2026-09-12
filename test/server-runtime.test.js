@@ -37,6 +37,8 @@ test('routes requests without browser globals using the same Router API', () => 
     assert.deepEqual(router.locationData.data.url, ['missing']);
     assert.deepEqual(router.locationData.data.query, {q: '✓'});
     assert.deepEqual(router.locationData.data.mediator, {requestId: 'abc'});
+    assert.equal(router.eventPushStateClick({}), true);
+    assert.equal(router.eventPopState({}), router);
     assert.equal(router.destroy(), router);
     assert.equal(router.listenersInitialized, false);
 });
@@ -101,4 +103,12 @@ test('server initialize defaults to root and mediator listeners remain symmetric
     router.destroy();
     assert.equal(events[1][0], 'off');
     assert.equal(events[0][2], events[1][2]);
+});
+
+test('server initialization preserves a preconfigured URL when no request URL is passed', () => {
+    const router = new Router();
+    router.url = '/preconfigured';
+    router.routes = {'/preconfigured': () => true};
+    assert.equal(router.initialize(), router);
+    assert.equal(router.url, '/preconfigured');
 });
