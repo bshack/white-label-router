@@ -12,7 +12,8 @@ interface NavigationMediator {
     removeListener(event: string, callback: (data?: NavigationData) => unknown): unknown;
 }
 
-const hasBrowserRuntime = () => typeof window !== 'undefined' && typeof document !== 'undefined';
+const hasWindow = () => typeof window !== 'undefined';
+const hasDocument = () => typeof document !== 'undefined';
 
 /** History API router with ordered path-boundary matching and a server-safe runtime. */
 class Router {
@@ -56,7 +57,7 @@ class Router {
     initialize(url?: string) {
         if (url !== undefined) {
             this.url = url;
-        } else if (hasBrowserRuntime()) {
+        } else if (hasWindow()) {
             this.url = window.location.pathname + window.location.search + (window.location.hash || '');
         } else if (!this.url) {
             this.url = '/';
@@ -69,13 +70,9 @@ class Router {
     /** Register stable browser and optional mediator handlers once. */
     addListeners() {
         if (this.listenersInitialized) {return this;}
-        if (hasBrowserRuntime()) {
-            document.addEventListener('click', this.boundPushStateClick);
-            window.addEventListener('popstate', this.boundPopState);
-        }
-        if (this.mediator) {
-            this.mediator.on('router:navigate', this.boundMediatorNavigate);
-        }
+        if (hasDocument()) {document.addEventListener('click', this.boundPushStateClick);}
+        if (hasWindow()) {window.addEventListener('popstate', this.boundPopState);}
+        if (this.mediator) {this.mediator.on('router:navigate', this.boundMediatorNavigate);}
         this.listenersInitialized = true;
         return this;
     }
@@ -88,19 +85,15 @@ class Router {
     /** Release listeners owned by this instance. */
     removeListeners() {
         if (!this.listenersInitialized) {return this;}
-        if (hasBrowserRuntime()) {
-            document.removeEventListener('click', this.boundPushStateClick);
-            window.removeEventListener('popstate', this.boundPopState);
-        }
-        if (this.mediator) {
-            this.mediator.removeListener('router:navigate', this.boundMediatorNavigate);
-        }
+        if (hasDocument()) {document.removeEventListener('click', this.boundPushStateClick);}
+        if (hasWindow()) {window.removeEventListener('popstate', this.boundPopState);}
+        if (this.mediator) {this.mediator.removeListener('router:navigate', this.boundMediatorNavigate);}
         this.listenersInitialized = false;
         return this;
     }
 
     eventPushStateClick(e: MouseEvent) {
-        if (!hasBrowserRuntime()) {return true;}
+        if (!hasWindow()) {return true;}
         if (
             e.defaultPrevented ||
             (e.button !== undefined && e.button !== 0) ||
@@ -129,7 +122,7 @@ class Router {
     }
 
     eventPopState(_e: PopStateEvent) {
-        if (!hasBrowserRuntime()) {return this;}
+        if (!hasWindow()) {return this;}
         this.url = window.location.pathname + window.location.search + (window.location.hash || '');
         this.navigate(undefined, {}, true);
         return this;
@@ -140,7 +133,7 @@ class Router {
     }
 
     private parseUrl(url: string) {
-        const base = hasBrowserRuntime() ? window.location.origin : 'http://localhost';
+        const base = hasWindow() ? window.location.origin : 'http://localhost';
         return new URL(url || '/', base);
     }
 
@@ -173,7 +166,7 @@ class Router {
             return this;
         }
         this.pageTitle = typeof route.title === 'string' ? route.title : null;
-        if (!hasBrowserRuntime()) {return this;}
+        if (!hasDocument()) {return this;}
         if (this.pageTitle) {document.title = this.pageTitle;}
         if (route.focus !== false) {
             const target = document.querySelector<HTMLElement>(route.focus || 'main h1');
@@ -223,7 +216,7 @@ class Router {
             this.previousRoute = this.route;
         }
 
-        if (!isPopState && hasBrowserRuntime()) {
+        if (!isPopState && hasWindow()) {
             window.history.pushState(this.url, this.pageTitle || '', this.url);
         }
         return this;
