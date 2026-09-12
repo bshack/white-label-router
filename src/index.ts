@@ -134,13 +134,13 @@ class Router {
 
     private parseUrl(url: string) {
         const base = hasWindow() ? window.location.origin : 'http://localhost';
-        return new URL(url || '/', base);
+        return new URL(url, base);
     }
 
     /** Normalize absolute and relative input to an application URL. */
     private normalizeUrl(url: string) {
         const parsed = this.parseUrl(url);
-        return `${parsed.pathname}${parsed.search}${parsed.hash}` || '/';
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
     }
 
     setLocationData(mediatorData?: NavigationData) {
