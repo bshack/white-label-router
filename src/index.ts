@@ -109,7 +109,7 @@ class Router {
 
     /** Intercept eligible same-origin push-state links while preserving normal browser actions. */
     eventPushStateClick(e: MouseEvent) {
-        if (!this.isBrowserRuntime()) {return true;}
+        if (typeof window === 'undefined') {return true;}
         if (e.defaultPrevented || (e.button !== undefined && e.button !== 0) || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
             return true;
         }
@@ -129,7 +129,7 @@ class Router {
 
     /** Restore browser history state without adding a new history entry. */
     eventPopState() {
-        if (!this.isBrowserRuntime()) {return this;}
+        if (typeof window === 'undefined') {return this;}
         this.url = this.getCurrentUrl();
         this.navigate(undefined, {}, true);
         return this;
