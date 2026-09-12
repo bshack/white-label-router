@@ -277,7 +277,7 @@ The distribution is CommonJS emitted by TypeScript. CommonJS `require` and the d
 
 ## Verification and coverage
 
-The package has no runtime dependency on model, mediator, or view. Package tests cover browser behavior, DOM-free server routing, and parity of the shared route contract. Consuming applications remain responsible for their own application-level integration testing.
+The package can be installed and used independently; it has no runtime dependency on the other White Label packages. Package tests cover browser behavior, DOM-free server routing, and parity of the shared route contract. Consuming applications remain responsible for their own application-level integration testing.
 
 ```sh
 npm ci --ignore-scripts
