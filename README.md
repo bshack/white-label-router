@@ -200,7 +200,7 @@ Path segments and query values are URI-decoded with standard WHATWG URL APIs. Ap
 
 ## Mediator navigation
 
-Assign an EventEmitter-compatible mediator before initialization. It must provide both `on()` and `removeListener()` so teardown can release the subscription.
+Assign an EventEmitter-compatible mediator before initialization. It must provide both `on()` and `removeListener()` so teardown can release the subscription. [`white-label-mediator`](https://github.com/bshack/white-label-mediator) provides the first-party implementation used by the White Label stack.
 
 ```js
 import Mediator from 'white-label-mediator';
