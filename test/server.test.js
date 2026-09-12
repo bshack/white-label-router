@@ -84,4 +84,16 @@ test('server initialize defaults to root and navigate does not require history',
     second.routes = {'/health': () => true};
     assert.equal(second.navigate('/health'), second);
     assert.equal(second.route, '/health');
+
+    // Direct navigation with no prior URL must resolve the server default itself.
+    const third = new Router();
+    third.routes = {defaultRoute: () => true};
+    assert.equal(third.navigate(), third);
+    assert.equal(third.url, '/');
+
+    // Location parsing also has a safe root fallback when invoked before navigation.
+    const fourth = new Router();
+    fourth.setLocationData();
+    assert.equal(fourth.locationData.url, '');
+    assert.deepEqual(fourth.locationData.data.url, []);
 });
