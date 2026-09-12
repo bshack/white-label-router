@@ -214,6 +214,7 @@ router.destroy();
 ```sh
 npm ci
 npm run build
+npm run lint
 npm run typecheck
 npm test
 npm run coverage
@@ -241,14 +242,13 @@ router.initialize();
 
 This is a major release because the distribution is now CommonJS emitted by TypeScript, replacing the previous UMD wrapper. CommonJS `require` and the documented ESM imports remain supported. Direct AMD loading or browser script tags that depended on UMD globals must migrate to a browser bundler. Edit `src/*.ts`, then run `npm run build`; do not edit generated `dist` files. The obsolete Babel build dependencies have been removed.
 
-### Verification and coverage
+### Verification, coverage, and compatibility
 
-## Tested compatibility
-
-Version 4.1 is tested with model 3.x, mediator 3.x, and view 4.x. The router has no runtime dependency on those packages.
+Version 5.0.0 has no runtime dependency on model, mediator, or view. Package tests cover the router public contract independently; consuming applications are responsible for integration testing the package versions they select.
 
 ```sh
 npm ci --ignore-scripts
+npm run lint
 npm run typecheck
 npm test
 npm run coverage
@@ -272,6 +272,6 @@ router.routes = {
 
 The default focus selector is `main h1`. Set `focus: false` for an in-page state change that should preserve the user's current focus. A focused element receives `tabindex="-1"` only when it does not already have a tabindex.
 
-## Unreleased navigation fixes
+## Current navigation behavior
 
 Initialization dispatches the current URL without adding a duplicate history entry. Back/forward navigation reads `window.location` (path, query, and hash), including when history state is null or belongs to another application. History state is not the authoritative URL.
