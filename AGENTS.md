@@ -709,6 +709,19 @@ Do not perform the following without explicit approval:
 
 Never overwrite or discard work that may have been created outside the current task.
 
+## Remote-write branch safety
+
+Before any remote repository write, including file creation, file replacement, file deletion, commits, ref updates, or pull-request preparation:
+
+1. Determine the repository's actual default branch from repository metadata; do not infer it from conventions or another repository.
+2. Unless the user explicitly requests a direct default-branch modification, create a dedicated task branch before the first write.
+3. Verify that the task branch exists and points to the intended base commit or ref before writing files.
+4. Pass the task branch or ref explicitly to every remote write operation. Never omit the branch/ref and rely on a tool's default-branch behavior.
+5. After each write, verify the returned commit/head and any pull-request head still belong to the intended task branch.
+6. If branch creation or branch verification fails, stop remote writes and diagnose the failure. Never work around it by omitting the branch/ref or writing to the default branch.
+7. If an accidental default-branch write occurs, disclose it immediately and restore the intended net content with a non-destructive forward commit unless the user explicitly authorizes history rewriting.
+8. Open pull requests from the verified task branch. Merging remains a separate action requiring applicable user authorization.
+
 ---
 
 # 27. External Services and APIs
@@ -910,6 +923,7 @@ Before declaring a task complete, verify all applicable items:
 - [ ] Existing project conventions were followed.
 - [ ] The prescribed runtime, package manager, lockfile, and task runner were used.
 - [ ] Generated files were handled through their source or generator when applicable.
+- [ ] Remote writes used a verified task branch and explicit branch/ref unless the user explicitly requested a direct default-branch write.
 - [ ] Documentation/comments were added where appropriate.
 - [ ] Relevant tests were run.
 - [ ] Tests were not weakened simply to make them pass.
