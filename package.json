@@ -1,7 +1,7 @@
 {
   "name": "white-label-router",
   "version": "5.0.0",
-  "description": "A simple ES6 JS router",
+  "description": "A small History API router for progressive link enhancement, route guards, view lifecycles, and focus management.",
   "main": "dist/index.js",
   "files": [
     "dist",
@@ -22,12 +22,13 @@
     }
   ],
   "keywords": [
-    "js",
-    "javacript",
+    "javascript",
+    "typescript",
     "router",
-    "es6",
-    "es2015",
-    "delegate"
+    "history-api",
+    "progressive-enhancement",
+    "navigation",
+    "accessibility"
   ],
   "author": "bshack",
   "license": "MIT",
@@ -77,8 +78,7 @@
     "statements": 100,
     "perFile": true,
     "exclude": [
-      "**/*.d.ts"
-    ]
+      "**/*.d.ts"]
   },
   "exports": {
     ".": {
