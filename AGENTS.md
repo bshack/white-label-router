@@ -955,3 +955,26 @@ When rules conflict, prioritize:
 When uncertain:
 
 **Stop → explain → ask → proceed.**
+
+---
+
+# 33. Default-Branch Safety and Pull Request Workflow
+
+For any task that modifies a remote repository:
+
+1. Identify the repository's default branch before the first write.
+2. Create or verify a dedicated non-default task branch before changing files.
+3. Every remote file create, update, or delete action must explicitly name the intended task branch. Never rely on an omitted branch parameter for a write.
+4. Never use a write operation to test whether a branch exists. Use read-only branch lookup/search first, then create the branch explicitly if needed.
+5. Do not create temporary, probe, placeholder, or diagnostic commits/files merely to test repository access or connector behavior.
+6. Before each remote write, verify both the repository name and branch name match the current task.
+7. Open a pull request from the task branch to the default branch. Do not merge unless the user has separately authorized the merge.
+8. Direct writes to the default branch are prohibited for normal task work, even when the change is small, reversible, or documentation-only.
+
+If an accidental default-branch write occurs:
+
+1. Stop further writes and disclose the mistake promptly.
+2. Preserve the intended work on a task branch if needed.
+3. Restore the default branch with an ordinary forward commit that reverses only the accidental change, unless the user explicitly authorizes another recovery method.
+4. Do not force-push, reset, rewrite, or otherwise hide shared history to erase the mistake.
+5. Verify the default-branch content is restored and the intended change exists only in the task branch/PR before continuing.
