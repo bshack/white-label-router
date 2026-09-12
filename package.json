@@ -1,7 +1,7 @@
 {
   "name": "white-label-router",
   "version": "5.0.0",
-  "description": "A small History API router for progressive link enhancement, route guards, view lifecycles, and focus management.",
+  "description": "A small browser/server router with History API progressive enhancement, route guards, view lifecycles, and focus management.",
   "main": "dist/index.js",
   "files": [
     "dist",
@@ -28,7 +28,11 @@
     "history-api",
     "progressive-enhancement",
     "navigation",
-    "accessibility"
+    "accessibility",
+    "browser",
+    "node",
+    "server-side",
+    "universal"
   ],
   "author": "bshack",
   "license": "MIT",

@@ -38,6 +38,15 @@ jobs:
       - run: npm run coverage
       - run: npm run audit
       - run: npm pack --dry-run
+      - name: Verify packed install
+        run: |
+          PACKAGE="$(npm pack --silent)"
+          TEMP="$(mktemp -d)"
+          cd "$TEMP"
+          npm init -y >/dev/null
+          npm install --ignore-scripts "$GITHUB_WORKSPACE/$PACKAGE" >/dev/null
+          node -e "const Router=require('white-label-router'); if (typeof Router !== 'function') process.exit(1)"
+          rm "$GITHUB_WORKSPACE/$PACKAGE"
 
   sync-generated-files:
     needs: test-build-audit
