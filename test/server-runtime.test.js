@@ -43,6 +43,14 @@ test('routes requests without browser globals using the same Router API', () => 
     assert.equal(router.listenersInitialized, false);
 });
 
+test('fresh server navigation without a URL safely resolves to root', () => {
+    const router = new Router();
+    assert.equal(router.url, '');
+    assert.equal(router.navigate(), router);
+    assert.equal(router.url, '/');
+    assert.equal(router.route, 'defaultRoute');
+});
+
 test('server guards block a route without running its view or browser history', () => {
     let rendered = false;
     const router = new Router();
