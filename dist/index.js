@@ -1,5 +1,6 @@
 "use strict";
-const hasBrowserRuntime = () => typeof window !== 'undefined' && typeof document !== 'undefined';
+const hasWindow = () => typeof window !== 'undefined';
+const hasDocument = () => typeof document !== 'undefined';
 /** History API router with ordered path-boundary matching and a server-safe runtime. */
 class Router {
     routes;
@@ -41,7 +42,7 @@ class Router {
         if (url !== undefined) {
             this.url = url;
         }
-        else if (hasBrowserRuntime()) {
+        else if (hasWindow()) {
             this.url = window.location.pathname + window.location.search + (window.location.hash || '');
         }
         else if (!this.url) {
@@ -56,8 +57,10 @@ class Router {
         if (this.listenersInitialized) {
             return this;
         }
-        if (hasBrowserRuntime()) {
+        if (hasDocument()) {
             document.addEventListener('click', this.boundPushStateClick);
+        }
+        if (hasWindow()) {
             window.addEventListener('popstate', this.boundPopState);
         }
         if (this.mediator) {
@@ -75,8 +78,10 @@ class Router {
         if (!this.listenersInitialized) {
             return this;
         }
-        if (hasBrowserRuntime()) {
+        if (hasDocument()) {
             document.removeEventListener('click', this.boundPushStateClick);
+        }
+        if (hasWindow()) {
             window.removeEventListener('popstate', this.boundPopState);
         }
         if (this.mediator) {
@@ -86,7 +91,7 @@ class Router {
         return this;
     }
     eventPushStateClick(e) {
-        if (!hasBrowserRuntime()) {
+        if (!hasWindow()) {
             return true;
         }
         if (e.defaultPrevented ||
@@ -116,7 +121,7 @@ class Router {
         return this;
     }
     eventPopState(_e) {
-        if (!hasBrowserRuntime()) {
+        if (!hasWindow()) {
             return this;
         }
         this.url = window.location.pathname + window.location.search + (window.location.hash || '');
@@ -127,7 +132,7 @@ class Router {
         return Object.fromEntries(new URLSearchParams(queryString));
     }
     parseUrl(url) {
-        const base = hasBrowserRuntime() ? window.location.origin : 'http://localhost';
+        const base = hasWindow() ? window.location.origin : 'http://localhost';
         return new URL(url || '/', base);
     }
     /** Normalize absolute and relative input to an application URL. */
@@ -162,7 +167,7 @@ class Router {
             return this;
         }
         this.pageTitle = typeof route.title === 'string' ? route.title : null;
-        if (!hasBrowserRuntime()) {
+        if (!hasDocument()) {
             return this;
         }
         if (this.pageTitle) {
@@ -220,7 +225,7 @@ class Router {
             this.applyPageContext(selected);
             this.previousRoute = this.route;
         }
-        if (!isPopState && hasBrowserRuntime()) {
+        if (!isPopState && hasWindow()) {
             window.history.pushState(this.url, this.pageTitle || '', this.url);
         }
         return this;
