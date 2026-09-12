@@ -83,18 +83,20 @@ test('click handling preserves browser actions and handles text-node targets', t
     let navigations = 0;
     router.navigate = () => navigations++;
     const event = overrides => ({button: 0, preventDefault() {}, ...overrides});
-    for (const overrides of [{defaultPrevented: true}, {button: 1}, {metaKey: true}, {shiftKey: true}, {altKey: true}, {target: null}, {target: {}}, {target: {closest: () => null}}]) {
+    for (const overrides of [{defaultPrevented: true}, {button: 1}, {button: undefined, ctrlKey: true}, {metaKey: true}, {ctrlKey: true}, {shiftKey: true}, {altKey: true}, {target: null}, {target: {}}, {target: {closest: () => null}}]) {
         assert.equal(router.eventPushStateClick(event(overrides)), true);
     }
     const anchor = (attrs) => ({getAttribute: name => attrs[name], hasAttribute: name => name in attrs});
-    for (const attrs of [{href: '/', download: ''}, {href: '/', target: '_blank'}]) {
+    for (const attrs of [{href: '/', download: ''}, {href: '/', target: '_blank'}, {href: 'https://other.test/page'}]) {
         assert.equal(router.eventPushStateClick(event({target: {closest: () => anchor(attrs)}})), true);
     }
     assert.equal(navigations, 0);
+    router.eventPushStateClick(event({button: undefined, target: {closest: () => anchor({href: '/keyboard-like'})}}));
+    assert.equal(router.url, '/keyboard-like');
     router.eventPushStateClick(event({target: {parentElement: {closest: () => anchor({href: '/nested', target: '_self'})}}}));
     assert.equal(router.url, '/nested');
     window.location.href = '';
     router.eventPushStateClick(event({target: {closest: () => anchor({})}}));
     assert.equal(router.url, '/');
-    assert.equal(navigations, 2);
+    assert.equal(navigations, 3);
 });
