@@ -16,7 +16,6 @@ Use it independently or compose it with the rest of White Label:
 - [`white-label-model`](https://github.com/bshack/white-label-model) can own state changed by a route.
 - [`white-label-view`](https://github.com/bshack/white-label-view) can own the rendering lifecycle started by a route.
 - [`generator-white-label`](https://github.com/bshack/white-label) demonstrates the complete composition.
-- [`white-label-demo-site`](https://github.com/bshack/white-label-demo-site) contains the complete documentation and live examples.
 
 The package has no runtime dependency on the other White Label packages.
 
