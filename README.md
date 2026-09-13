@@ -49,6 +49,8 @@ router.routes = {
     '/products': (_scope, location) => console.log(location.data.url),
     defaultRoute: () => true
 };
+
+// initialize() dispatches the current URL and returns the router for chaining.
 router.initialize();
 ```
 
@@ -99,6 +101,7 @@ router.routes = {
         title: 'Orders',
         focus: '#orders-title',
         secure(scope, location) {
+            // Guards must return exactly true to allow navigation.
             return Boolean(window.currentUser);
         },
         view: {
@@ -151,9 +154,11 @@ Routes receive the configured `scope` and a location object:
 ## Programmatic navigation
 
 ```js
-router.navigate('/products/42', {
+const result = router.navigate('/products/42', {
     source: 'featured-products'
 });
+
+// `result` is the router on success or false when navigation is rejected.
 ```
 
 In browsers, successful navigation updates history unless the call represents `popstate`. On servers it dispatches without History API effects.
@@ -183,16 +188,21 @@ The complete event object becomes `location.data.mediator`. `destroy()` removes 
 
 ## Public API
 
-| Member | Behavior |
-| --- | --- |
-| `routes` | Ordered route table of functions or lifecycle route objects. |
-| `scope` | Application scope passed to route callbacks. |
-| `mediator` | Optional EventEmitter-compatible source for `router:navigate`. |
-| `initialize(url?)` | Dispatch the browser URL or an explicit server URL and attach applicable listeners. |
-| `navigate(url?, data?, isPopState?)` | Match and run a route; update browser history when appropriate. |
-| `addListeners()` | Attach browser and optional mediator listeners once. |
-| `removeListeners()` | Release listeners owned by this router. |
-| `destroy()` | Release routing listeners and return the router. |
+| Member | Behavior | Returns |
+| --- | --- | --- |
+| `routes` | Ordered route table of functions or lifecycle route objects. | Configuration property; not a method. |
+| `scope` | Application scope passed to route callbacks. | Configuration property; not a method. |
+| `mediator` | Optional EventEmitter-compatible source for `router:navigate`. | Configuration property; not a method. |
+| `initialize(url?)` | Dispatch the browser URL or an explicit server URL and attach applicable listeners. | The same `Router` instance. |
+| `navigate(url?, data?, isPopState?)` | Match and run a route; update browser history when appropriate. | The same `Router` instance on success; `false` for cross-origin browser URLs, rejected guards, or routes without runnable view behavior. |
+| `addListeners()` | Attach browser and optional mediator listeners once. | The same `Router` instance. |
+| `removeListeners()` | Release listeners owned by this router. | The same `Router` instance. |
+| `destroy()` | Release routing listeners. | The same `Router` instance after cleanup. |
+| `parseQueryString(query)` | Decode a query string using `URLSearchParams`. | A plain object containing the last value for each query key. |
+| `setLocationData(data?)` | Rebuild the current route location payload. | `undefined`; updates `locationData` in place. |
+| `applyPageContext(route)` | Update route title/focus context when applicable. | The same `Router` instance. |
+| `eventPushStateClick(event)` | Handle an eligible browser push-state click. | The same `Router` instance after handled navigation; `true` when native/default handling should continue. |
+| `eventPopState()` | Dispatch the current browser history location. | The same `Router` instance. |
 
 ## Title and focus
 
