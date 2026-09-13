@@ -34,12 +34,65 @@ jobs:
       - run: npm run coverage
       - run: npm run audit
       - run: npm pack --dry-run
+      - name: Create packed package
+        run: npm pack --silent
+      - uses: actions/upload-artifact@v7
+        with:
+          name: packed-package
+          path: '*.tgz'
+          if-no-files-found: error
+          retention-days: 7
       - name: Verify packed install
         run: |
-          PACKAGE="$(npm pack --silent)"
+          PACKAGE="$(ls *.tgz)"
           TEMP="$(mktemp -d)"
           cd "$TEMP"
-          npm init -y >/dev/null
+          printf '{"private":true}\n' > package.json
           npm install --ignore-scripts "$GITHUB_WORKSPACE/$PACKAGE" >/dev/null
           node -e "const Router=require('white-label-router'); if (typeof Router !== 'function') process.exit(1)"
-          rm "$GITHUB_WORKSPACE/$PACKAGE"
+
+  package-manager-compatibility:
+    needs: test-build-audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        package-manager: [npm, yarn, pnpm]
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.21.0
+      - uses: actions/download-artifact@v7
+        with:
+          name: packed-package
+          path: package
+      - name: Configure package manager
+        if: matrix.package-manager != 'npm'
+        run: |
+          corepack enable
+          if [ "${{ matrix.package-manager }}" = "yarn" ]; then
+            corepack prepare yarn@4.9.2 --activate
+          else
+            corepack prepare pnpm@10.17.1 --activate
+          fi
+      - name: Verify packed package
+        run: |
+          PACKAGE="$(realpath package/*.tgz)"
+          TEMP="$(mktemp -d)"
+          cd "$TEMP"
+          printf '{"private":true}\n' > package.json
+          case "${{ matrix.package-manager }}" in
+            npm)
+              npm install --ignore-scripts "$PACKAGE" >/dev/null
+              node -e "const Router=require('white-label-router'); if (typeof Router !== 'function') process.exit(1)"
+              ;;
+            yarn)
+              yarn add "$PACKAGE" >/dev/null
+              yarn node -e "const Router=require('white-label-router'); if (typeof Router !== 'function') process.exit(1)"
+              ;;
+            pnpm)
+              pnpm add --ignore-scripts "$PACKAGE" >/dev/null
+              pnpm exec node -e "const Router=require('white-label-router'); if (typeof Router !== 'function') process.exit(1)"
+              ;;
+          esac
