@@ -89,6 +89,5 @@
       "require": "./dist/index.js",
       "default": "./dist/index.js"
     }
-  },
-  "packageManager": "npm@11.19.1"
+  }
 }
