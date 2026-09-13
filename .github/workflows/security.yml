@@ -20,17 +20,13 @@ jobs:
         with:
           node-version: 24.21.0
           cache: npm
-      - name: Refresh dependency metadata
-        run: npm install --package-lock-only --ignore-scripts
       - run: npm ci --ignore-scripts
       - run: npm run lint
       - run: npm run build
       - uses: actions/upload-artifact@v4
         with:
-          name: generated-files
-          path: |
-            package-lock.json
-            dist
+          name: generated-dist
+          path: dist
           if-no-files-found: error
           retention-days: 7
       - run: npm run typecheck
@@ -47,35 +43,3 @@ jobs:
           npm install --ignore-scripts "$GITHUB_WORKSPACE/$PACKAGE" >/dev/null
           node -e "const Router=require('white-label-router'); if (typeof Router !== 'function') process.exit(1)"
           rm "$GITHUB_WORKSPACE/$PACKAGE"
-
-  sync-generated-files:
-    needs: test-build-audit
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          persist-credentials: true
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.21.0
-          cache: npm
-      - run: npm install --package-lock-only --ignore-scripts
-      - run: npm ci --ignore-scripts
-      - run: npm run lint
-      - run: npm run build
-      - name: Commit generated files when needed
-        shell: bash
-        run: |
-          if [ -n "$(git status --porcelain -- package-lock.json dist)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package-lock.json dist
-            git commit -m "Build generated Router files"
-            git push
-          fi
-      - run: git diff --exit-code -- package-lock.json dist
