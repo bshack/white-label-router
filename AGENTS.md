@@ -4,7 +4,7 @@
 
 History API routing with progressive link enhancement, route guards, and view lifecycles.
 
-Verified against `package.json`, `README.md`, and `.github/workflows/security.yml` on September 11, 2026. Recheck those files when commands or supported environments change.
+Verified against `package.json`, `README.md`, and `.github/workflows/security.yml` on September 13, 2026. Recheck those files when commands or supported environments change.
 
 ## Code map
 
@@ -23,7 +23,9 @@ npm run coverage
 npm run audit
 ```
 
-`npm test` builds implementation code, checks consumer types, and runs Node tests. `npm run coverage` enforces 100% statements, branches, functions, and lines per included implementation file. CI also runs `npm run build` and `git diff --exit-code -- dist` to detect committed-output drift.
+`npm test` builds implementation code, checks consumer types, and runs Node tests. `npm run coverage` enforces 100% statements, branches, functions, and lines per included implementation file. CI builds from authored source, uploads generated package artifacts for inspection, audits dependencies, packs the package, and verifies that the packed Router package installs and exposes the expected runtime entry point.
+
+Source-first testing policy: authored source and the committed lockfile are authoritative. Keep behavior, consumer-type, 100% coverage, build, audit, package, and packed-install verification strict. Do not rewrite dependency metadata or commit generated `dist/` output from CI merely to keep source and generated files synchronized. Reduce CI noise by removing brittle synchronization checks, not by weakening tests, lowering coverage, skipping type checks, or bypassing package/runtime verification.
 
 ESLint is configured through `eslint.config.mjs`; run `npm run lint` and treat warnings as failures. No dedicated formatter script is configured.
 
@@ -33,7 +35,7 @@ For one Node test file, first run `npm run build`, then `node --test test/path-t
 
 This repository is a library; no development-server script is defined. Build with `npm run build` and exercise browser behavior through the existing tests or a consuming application. The documented library workflow does not require production credentials.
 
-Edit TypeScript sources and regenerate tracked `dist/` output with the existing compiler; do not hand-edit compiled JavaScript or declarations. Review generated diffs with the source changes.
+Edit authored TypeScript, not compiled JavaScript or declarations. Generate `dist/` through the existing compiler when validating, packaging, or releasing. Review generated artifacts when material to the requested change, but do not require a PR or bot job to commit compiler output merely to satisfy a source-vs-generated drift check unless the repository's current release process explicitly requires it.
 
 ## Architectural boundaries
 
