@@ -51,6 +51,17 @@ class Router {
         }
         return window.location.pathname + window.location.search + (window.location.hash || '');
     }
+    /** Normalize browser navigation to a same-origin path, query, and hash. */
+    normalizeBrowserUrl(url) {
+        if (!this.isBrowserRuntime()) {
+            return url;
+        }
+        const parsedUrl = new URL(url || '/', window.location.href || `${window.location.origin}/`);
+        if (parsedUrl.origin !== window.location.origin) {
+            return null;
+        }
+        return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
+    }
     /**
      * Start this instance and return it for lifecycle chaining.
      * In a browser the URL is optional and defaults to window.location. On a server pass the request URL.
@@ -184,21 +195,25 @@ class Router {
     }
     /** Select a route, enforce its guard, transition view lifecycles, and update browser history when available. */
     navigate(url, mediatorData, isPopState = false) {
-        if (url) {
+        if (url !== undefined) {
             this.url = url;
         }
         if (!this.url) {
             this.url = this.getCurrentUrl();
         }
-        if (this.isBrowserRuntime()) {
-            this.url = this.url.replace(window.location.origin, '');
+        const normalizedUrl = this.normalizeBrowserUrl(this.url);
+        if (normalizedUrl === null) {
+            return false;
         }
+        this.url = normalizedUrl;
         this.route = null;
         const pathname = new URL(this.url, this.getOrigin()).pathname;
         for (const route in this.routes) {
-            if (route !== 'defaultRoute' && (pathname === route || pathname.startsWith(`${route}/`))) {
+            if (route === 'defaultRoute' || (pathname !== route && !pathname.startsWith(`${route}/`))) {
+                continue;
+            }
+            if (!this.route || route.length > this.route.length) {
                 this.route = route;
-                break;
             }
         }
         this.setLocationData(mediatorData);

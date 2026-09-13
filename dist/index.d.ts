@@ -51,6 +51,8 @@ declare class Router {
     private getOrigin;
     /** Read the authoritative browser URL, or retain the supplied server URL. */
     private getCurrentUrl;
+    /** Normalize browser navigation to a same-origin path, query, and hash. */
+    private normalizeBrowserUrl;
     /**
      * Start this instance and return it for lifecycle chaining.
      * In a browser the URL is optional and defaults to window.location. On a server pass the request URL.

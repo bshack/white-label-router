@@ -62,6 +62,31 @@ test('route guards, titles, function handlers and lifecycle teardown retain orde
     router.previousRoute = '/empty';
     router.navigate('/object');
 });
+test('most-specific matching is independent of route declaration order', () => {
+    const router = new Router();
+    const calls = [];
+    router.routes = {
+        '/products': (_scope, location) => calls.push(['products', location.data.url]),
+        '/products/special': (_scope, location) => calls.push(['special', location.data.url]),
+        defaultRoute: () => calls.push(['default'])
+    };
+    router.navigate('/products/special/42');
+    assert.equal(router.route, '/products/special');
+    assert.deepEqual(calls, [['special', ['42']]]);
+});
+test('browser navigation normalizes same-origin absolute URLs and rejects cross-origin URLs', t => {
+    const history = browser(t);
+    const router = new Router();
+    router.routes = {'/page': () => true};
+    assert.equal(router.normalizeBrowserUrl(''), '/');
+    assert.equal(router.navigate('https://example.test/page?q=1#details'), router);
+    assert.equal(router.url, '/page?q=1#details');
+    assert.deepEqual(history.at(-1), ['/page?q=1#details', '', '/page?q=1#details']);
+    const previousHistoryLength = history.length;
+    assert.equal(router.navigate('https://outside.test/page'), false);
+    assert.equal(history.length, previousHistoryLength);
+    assert.equal(router.url, 'https://outside.test/page');
+});
 test('page context updates title and focuses the configured target', t => {
     browser(t);
     const target = {focused: false, hasAttribute: () => false, setAttribute(name, value) {this[name] = value;}, focus() {this.focused = true;}};
