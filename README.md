@@ -2,7 +2,9 @@
 
 > Turn URLs into application intent without hiding the web platform.
 
-`white-label-router` provides one route contract across browser and server runtimes. In the browser it progressively enhances real links with the History API. On the server it dispatches explicit request URLs through the same matching, guard, lifecycle, query, and mediator contracts without requiring DOM globals.
+`white-label-router` is a framework-independent TypeScript router for browser and server applications. It progressively enhances real links with the History API in the browser and dispatches explicit request URLs on the server through the same matching, guard, lifecycle, query, focus, and mediator contracts.
+
+[Documentation](https://whitelabeljs.org/docs/router/) · [API reference](https://whitelabeljs.org/api/#router) · [Demo site](https://whitelabeljs.org/)
 
 **Responsibility:** translate navigation into application intent. Nothing more.
 

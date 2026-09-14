@@ -1,7 +1,7 @@
 {
   "name": "white-label-router",
   "version": "5.0.0",
-  "description": "A small browser/server router with History API progressive enhancement, route guards, view lifecycles, and focus management.",
+  "description": "Framework-independent TypeScript router for browser and server apps with History API progressive enhancement, route guards, and accessible navigation.",
   "sideEffects": false,
   "main": "dist/index.js",
   "files": [
@@ -25,10 +25,13 @@
     "javascript",
     "typescript",
     "router",
+    "routing",
+    "client-side-routing",
     "history-api",
     "progressive-enhancement",
     "navigation",
     "accessibility",
+    "framework-independent",
     "browser",
     "node",
     "server-side",
@@ -39,7 +42,7 @@
   "bugs": {
     "url": "https://github.com/bshack/white-label-router/issues"
   },
-  "homepage": "https://github.com/bshack/white-label-router#readme",
+  "homepage": "https://whitelabeljs.org/docs/router/",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "node --run build && node --run test:types && node --run test:unit",
@@ -81,8 +84,7 @@
     "branches": 100,
     "statements": 100,
     "perFile": true,
-    "exclude": [
-      "**/*.d.ts"]
+    "exclude": ["**/*.d.ts"]
   },
   "exports": {
     ".": {
