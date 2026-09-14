@@ -8,8 +8,7 @@
     "README.md"
   ],
   "engines": {
-    "node": "^22.18.0 || >=24.11.0",
-    "npm": ">=11.0"
+    "node": "^22.18.0 || >=24.11.0"
   },
   "repository": {
     "type": "git",
@@ -42,15 +41,15 @@
   "homepage": "https://github.com/bshack/white-label-router#readme",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && npm run test:types && npm run test:unit",
+    "test": "node --run build && node --run test:types && node --run test:unit",
     "audit": "npm audit --audit-level=high",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:unit": "node --test test/*.test.js",
-    "coverage": "npm run build && npm run test:types && c8 npm run test:unit",
-    "prepack": "npm run build",
+    "coverage": "node --run build && node --run test:types && c8 node --run test:unit",
+    "prepack": "node --run build",
     "test:types": "tsc -p tsconfig.consumer.json",
     "lint": "eslint \"src/**/*.ts\" --max-warnings=0",
-    "lint:fix": "npm run lint -- --fix"
+    "lint:fix": "node --run lint -- --fix"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
@@ -90,6 +89,5 @@
       "require": "./dist/index.js",
       "default": "./dist/index.js"
     }
-  },
-  "packageManager": "npm@11.19.1"
+  }
 }
