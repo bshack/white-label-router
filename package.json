@@ -1,7 +1,7 @@
 {
   "name": "white-label-router",
   "version": "5.0.0",
-  "description": "Framework-independent TypeScript router for browser and server apps with History API progressive enhancement, route guards, and accessible navigation.",
+  "description": "Framework-independent TypeScript router for browser, server, and request-scoped Node.js functions with progressive enhancement, guards, and accessible navigation.",
   "sideEffects": false,
   "main": "dist/index.js",
   "files": [
@@ -35,6 +35,7 @@
     "browser",
     "node",
     "server-side",
+    "serverless",
     "universal"
   ],
   "author": "bshack",
