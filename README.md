@@ -74,6 +74,23 @@ router.initialize('/products/42?color=blue');
 
 Browser-only history, click interception, focus, and document-title effects are skipped on the server. Scope mutable routing state per request when appropriate.
 
+## Serverless and function runtimes
+
+Pass the incoming request URL explicitly when Router runs inside a serverless function. The server path uses the same matching, query parsing, guards, and route lifecycle without requiring `window` or `document`.
+
+```js
+const requestUrl = new URL(request.url);
+const router = new Router();
+router.routes = routes;
+router.initialize(`${requestUrl.pathname}${requestUrl.search}`);
+```
+
+Create a request-scoped Router when its location state, mediator, route lifecycle, or other mutable configuration belongs to one invocation. Warm function processes may serve sequential or overlapping requests, so sharing one mutable Router can mix location/lifecycle state unless that process-wide lifetime is intentional.
+
+Router handles **application routing inside the invocation**. It does not replace API Gateway routes, CDN routing, Vercel/Netlify/Cloudflare route configuration, load balancing, authentication infrastructure, or other cloud request plumbing.
+
+The package currently documents Node.js as its supported server runtime. Its DOM-free server path uses standard URL APIs, but that is not a blanket compatibility claim for every edge provider; verify the actual target runtime before deployment.
+
 ## Progressive enhancement first
 
 Public navigation should remain a real link:
