@@ -22,6 +22,7 @@ The package has no runtime dependency on the other White Label packages.
 ## Requirements
 
 - Node.js `^22.18.0` or `>=24.11.0` for installation, development, and server execution.
+- npm, Yarn, and pnpm are supported for installation; see [`PACKAGE_MANAGERS.md`](PACKAGE_MANAGERS.md).
 - Browser History API, location, and standard DOM events only when using browser navigation behavior.
 - A directly requestable server route for every public browser route so enhanced links remain meaningful without JavaScript.
 
@@ -29,6 +30,8 @@ The package has no runtime dependency on the other White Label packages.
 
 ```sh
 npm install white-label-router
+# or: yarn add white-label-router
+# or: pnpm add white-label-router
 ```
 
 The same entrypoint is used in browsers and servers:
@@ -120,19 +123,19 @@ router.routes = {
 
 ## Matching
 
-Routes match complete path boundaries in insertion order. `/products` matches `/products` and `/products/42`, but not `/products-old`.
+Routes match complete path boundaries. `/products` matches `/products` and `/products/42`, but not `/products-old`.
 
-Put specific routes before broad routes:
+When multiple route prefixes match, Router selects the **longest matching route**, so specific routes win without depending on object insertion order:
 
 ```js
 router.routes = {
-    '/products/sale': saleRoute,
     '/products': productsRoute,
+    '/products/sale': saleRoute,
     defaultRoute
 };
 ```
 
-When no prefix matches, `defaultRoute` runs if configured.
+`/products/sale` selects `saleRoute` even though `/products` was defined first. When no prefix matches, `defaultRoute` runs if configured.
 
 ## Location contract
 
@@ -252,7 +255,7 @@ npm run audit
 npm pack --dry-run
 ```
 
-Tests cover browser behavior, DOM-free server routing, and parity of the shared route contract. Coverage enforces 100% statements, branches, functions, and lines per implementation file. CI packs and installs the public artifact in a clean project and rejects committed build-output drift.
+Tests cover browser behavior, DOM-free server routing, and parity of the shared route contract. Coverage enforces 100% statements, branches, functions, and lines per implementation file. CI builds authored source, uploads generated artifacts for inspection, audits dependencies, packs the package, and verifies the packed public API across npm, Yarn, and pnpm.
 
 Edit `src/*.ts` and regenerate `dist`; do not edit generated files directly.
 
