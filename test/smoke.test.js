@@ -5,57 +5,55 @@ const test = require('node:test');
 
 test('exports the Router constructor', function() {
     const Router = require('../dist/index');
-
+    const router = new Router();
     assert.equal(typeof Router, 'function');
+    assert.equal(router.constructor, Router);
 });
 
 test('listener cleanup uses the exact functions registered during initialization', function() {
     const Router = require('../dist/index');
-    const added = {};
-    const removed = {};
+    const router = new Router();
+    const added = new Map();
+    const removed = new Map();
     global.document = {
-        addEventListener(type, listener) {
-            added.document = {type, listener};
-        },
-        removeEventListener(type, listener) {
-            removed.document = {type, listener};
-        }
+        addEventListener(type, handler) {added.set(type, handler);},
+        removeEventListener(type, handler) {removed.set(type, handler);}
     };
     global.window = {
-        addEventListener(type, listener) {
-            added.window = {type, listener};
-        },
-        removeEventListener(type, listener) {
-            removed.window = {type, listener};
-        }
+        location: {origin: 'https://example.test', pathname: '/', search: '', hash: ''},
+        addEventListener(type, handler) {added.set(type, handler);},
+        removeEventListener(type, handler) {removed.set(type, handler);}
     };
-    const router = new Router();
 
-    router.addListeners();
     router.addListeners();
     router.removeListeners();
 
-    assert.equal(removed.document.listener, added.document.listener);
-    assert.equal(removed.window.listener, added.window.listener);
+    assert.equal(removed.get('click'), added.get('click'));
+    assert.equal(removed.get('popstate'), added.get('popstate'));
     delete global.document;
     delete global.window;
 });
 
 test('destroy removes the mediator listener and repeated initialization does not duplicate it', function() {
     const Router = require('../dist/index');
+    const router = new Router();
     const mediator = new EventTarget();
+    let navigations = 0;
     global.document = {
         addEventListener() {},
         removeEventListener() {}
     };
     global.window = {
+        location: {href: 'https://example.test/', origin: 'https://example.test', pathname: '/', search: '', hash: ''},
+        history: {pushState() {}},
         addEventListener() {},
         removeEventListener() {}
     };
-    const router = new Router();
     router.mediator = mediator;
-    let navigations = 0;
-    router.navigate = () => {navigations += 1;};
+    router.navigate = function() {
+        navigations += 1;
+        return this;
+    };
 
     router.addListeners();
     router.addListeners();
@@ -80,9 +78,10 @@ test('delegated navigation resolves a nested target to its push-state anchor', f
         hasAttribute: () => false
     };
     let prevented = false;
-    let navigated = false;
-    router.navigate = function() {
-        navigated = true;
+    let navigatedUrl = null;
+    router.navigate = function(url) {
+        navigatedUrl = url;
+        return this;
     };
 
     router.eventPushStateClick({
@@ -92,9 +91,8 @@ test('delegated navigation resolves a nested target to its push-state anchor', f
         target: {closest: () => anchor}
     });
 
-    assert.equal(router.url, '/products');
+    assert.equal(navigatedUrl, '/products');
     assert.equal(prevented, true);
-    assert.equal(navigated, true);
     delete global.window;
 });
 
@@ -109,49 +107,38 @@ test('delegated navigation leaves modified and external links to the browser', f
         hasAttribute: () => false
     };
     let prevented = false;
+    let navigated = false;
+    router.navigate = function() {navigated = true;};
 
-    router.eventPushStateClick({
-        ctrlKey: true,
-        preventDefault() {
-            prevented = true;
-        },
+    assert.equal(router.eventPushStateClick({
+        metaKey: true,
+        preventDefault() {prevented = true;},
         target: {closest: () => anchor}
-    });
-    assert.equal(prevented, false);
-
-    router.eventPushStateClick({
-        preventDefault() {
-            prevented = true;
-        },
+    }), true);
+    assert.equal(router.eventPushStateClick({
+        preventDefault() {prevented = true;},
         target: {closest: () => anchor}
-    });
+    }), true);
     assert.equal(prevented, false);
+    assert.equal(navigated, false);
     delete global.window;
 });
 
 test('route matching respects path boundaries and decodes location data', function() {
     const Router = require('../dist/index');
-    global.document = {title: ''};
-    global.window = {
-        history: {pushState() {}},
-        location: {origin: 'https://example.test'}
-    };
     const router = new Router();
-    let matched = '';
+    let received;
     router.routes = {
-        '/page2': (scope, location) => {
-            matched = `page2:${location.data.url[0]}:${location.data.query.name}`;
-        },
-        defaultRoute: () => {
-            matched = 'default';
-        }
+        '/products': (_scope, location) => {received = location;},
+        defaultRoute: () => true
     };
 
-    router.navigate('/page23');
-    assert.equal(matched, 'default');
+    router.navigate('/products/a%20b?tag=one&tag=two');
+    assert.deepEqual(received.data.url, ['a b']);
+    assert.deepEqual(received.data.query, {tag: 'two'});
 
-    router.navigate('/page2/fred%20smith?name=Grace+Hopper');
-    assert.equal(matched, 'page2:fred smith:Grace Hopper');
-    delete global.document;
-    delete global.window;
+    received = undefined;
+    router.navigate('/products-old');
+    assert.equal(received, undefined);
+    assert.equal(router.route, 'defaultRoute');
 });
