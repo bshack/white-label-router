@@ -57,8 +57,8 @@ test('server runtime keeps listener lifecycle and browser-only handlers safe', t
     const events = [];
     const router = new Router();
     router.mediator = {
-        on(event, callback) {events.push(['on', event]); this.callback = callback;},
-        removeListener(event, callback) {events.push(['off', event, callback === this.callback]);}
+        addEventListener(event, callback) {events.push(['on', event]); this.callback = callback;},
+        removeEventListener(event, callback) {events.push(['off', event, callback === this.callback]);}
     };
 
     assert.equal(router.addListeners(), router);
@@ -85,13 +85,11 @@ test('server initialize defaults to root and navigate does not require history',
     assert.equal(second.navigate('/health'), second);
     assert.equal(second.route, '/health');
 
-    // Direct navigation with no prior URL must resolve the server default itself.
     const third = new Router();
     third.routes = {defaultRoute: () => true};
     assert.equal(third.navigate(), third);
     assert.equal(third.url, '/');
 
-    // Location parsing also has a safe root fallback when invoked before navigation.
     const fourth = new Router();
     fourth.setLocationData();
     assert.equal(fourth.locationData.url, '');
