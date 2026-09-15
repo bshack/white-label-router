@@ -2,7 +2,6 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const EventEmitter = require('node:events');
 
 test('exports the Router constructor', function() {
     const Router = require('../dist/index');
@@ -44,7 +43,7 @@ test('listener cleanup uses the exact functions registered during initialization
 
 test('destroy removes the mediator listener and repeated initialization does not duplicate it', function() {
     const Router = require('../dist/index');
-    const mediator = new EventEmitter();
+    const mediator = new EventTarget();
     global.document = {
         addEventListener() {},
         removeEventListener() {}
@@ -55,13 +54,17 @@ test('destroy removes the mediator listener and repeated initialization does not
     };
     const router = new Router();
     router.mediator = mediator;
+    let navigations = 0;
+    router.navigate = () => {navigations += 1;};
 
     router.addListeners();
     router.addListeners();
-    assert.equal(mediator.listenerCount('router:navigate'), 1);
+    mediator.dispatchEvent(new CustomEvent('router:navigate', {detail: {url: '/account'}}));
+    assert.equal(navigations, 1);
 
     router.destroy();
-    assert.equal(mediator.listenerCount('router:navigate'), 0);
+    mediator.dispatchEvent(new CustomEvent('router:navigate', {detail: {url: '/ignored'}}));
+    assert.equal(navigations, 1);
     delete global.document;
     delete global.window;
 });

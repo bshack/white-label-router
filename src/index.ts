@@ -6,10 +6,10 @@ type RouteHandler = (scope: Element | null, location: LocationData) => unknown;
 /** An object route can own a function or a view lifecycle. */
 interface RouteObject {title?: string; focus?: string | false; secure?: RouteHandler; view?: RouteHandler | {initialize?: RouteHandler; destroy?: RouteHandler}}
 type Route = RouteHandler | RouteObject;
-/** Minimal event-bus contract required by the router. */
+/** Minimal standards-based event target contract required by the router. */
 interface NavigationMediator {
-    on(event: string, callback: (data?: NavigationData) => unknown): unknown;
-    removeListener(event: string, callback: (data?: NavigationData) => unknown): unknown;
+    addEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+    removeEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
 }
 /** History API router that also dispatches request URLs in non-browser runtimes. */
 class Router {
@@ -22,7 +22,7 @@ class Router {
     mediator: NavigationMediator | false;
     boundPushStateClick: (event: MouseEvent) => unknown;
     boundPopState: (event: PopStateEvent) => unknown;
-    boundMediatorNavigate: (data?: NavigationData) => unknown;
+    boundMediatorNavigate: EventListener;
     listenersInitialized: boolean;
     locationData: LocationData = {url: '', data: {url: [], mediator: undefined, query: {}}};
 
@@ -44,7 +44,8 @@ class Router {
         this.mediator = false;
         this.boundPushStateClick = this.eventPushStateClick.bind(this);
         this.boundPopState = this.eventPopState.bind(this);
-        this.boundMediatorNavigate = (data = {}) => {
+        this.boundMediatorNavigate = (event: Event) => {
+            const data = (event as CustomEvent<NavigationData | undefined>).detail ?? {};
             this.navigate(data.url, data, false);
         };
         this.listenersInitialized = false;
@@ -92,7 +93,7 @@ class Router {
             document.addEventListener('click', this.boundPushStateClick);
             window.addEventListener('popstate', this.boundPopState);
         }
-        if (this.mediator) {this.mediator.on('router:navigate', this.boundMediatorNavigate);}
+        if (this.mediator) {this.mediator.addEventListener('router:navigate', this.boundMediatorNavigate);}
         this.listenersInitialized = true;
         return this;
     }
@@ -110,7 +111,7 @@ class Router {
             document.removeEventListener('click', this.boundPushStateClick);
             window.removeEventListener('popstate', this.boundPopState);
         }
-        if (this.mediator) {this.mediator.removeListener('router:navigate', this.boundMediatorNavigate);}
+        if (this.mediator) {this.mediator.removeEventListener('router:navigate', this.boundMediatorNavigate);}
         this.listenersInitialized = false;
         return this;
     }
