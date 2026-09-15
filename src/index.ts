@@ -19,12 +19,13 @@ class Router {
     scope: Element | null;
     previousRoute: string | null;
     pageTitle: string | null;
-    mediator: NavigationMediator | false;
     boundPushStateClick: (event: MouseEvent) => unknown;
     boundPopState: (event: PopStateEvent) => unknown;
     boundMediatorNavigate: EventListener;
     listenersInitialized: boolean;
     locationData: LocationData = {url: '', data: {url: [], mediator: undefined, query: {}}};
+    private currentMediator: NavigationMediator | false = false;
+    private boundMediator: NavigationMediator | false = false;
 
     /** Create an instance with its own state and listener references. */
     constructor() {
@@ -41,7 +42,6 @@ class Router {
         this.scope = null;
         this.previousRoute = null;
         this.pageTitle = null;
-        this.mediator = false;
         this.boundPushStateClick = this.eventPushStateClick.bind(this);
         this.boundPopState = this.eventPopState.bind(this);
         this.boundMediatorNavigate = (event: Event) => {
@@ -49,6 +49,22 @@ class Router {
             this.navigate(data.url, data, false);
         };
         this.listenersInitialized = false;
+    }
+
+    get mediator(): NavigationMediator | false {return this.currentMediator;}
+
+    /** Move an active router:navigate subscription when the mediator changes. */
+    set mediator(value: NavigationMediator | false) {
+        if (value === this.currentMediator) {return;}
+        if (this.listenersInitialized && this.boundMediator) {
+            this.boundMediator.removeEventListener('router:navigate', this.boundMediatorNavigate);
+            this.boundMediator = false;
+        }
+        this.currentMediator = value;
+        if (this.listenersInitialized && value) {
+            value.addEventListener('router:navigate', this.boundMediatorNavigate);
+            this.boundMediator = value;
+        }
     }
 
     /** True when browser navigation APIs are available. */
@@ -75,6 +91,12 @@ class Router {
         return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
     }
 
+    /** Return whether a selected route has runnable view behavior. */
+    private isRunnableRoute(route: Route): boolean {
+        return typeof route === 'function' || typeof route.view === 'function' ||
+            Boolean(route.view && typeof route.view.initialize === 'function');
+    }
+
     /**
      * Start this instance and return it for lifecycle chaining.
      * In a browser the URL is optional and defaults to window.location. On a server pass the request URL.
@@ -93,7 +115,10 @@ class Router {
             document.addEventListener('click', this.boundPushStateClick);
             window.addEventListener('popstate', this.boundPopState);
         }
-        if (this.mediator) {this.mediator.addEventListener('router:navigate', this.boundMediatorNavigate);}
+        if (this.currentMediator) {
+            this.currentMediator.addEventListener('router:navigate', this.boundMediatorNavigate);
+            this.boundMediator = this.currentMediator;
+        }
         this.listenersInitialized = true;
         return this;
     }
@@ -111,7 +136,10 @@ class Router {
             document.removeEventListener('click', this.boundPushStateClick);
             window.removeEventListener('popstate', this.boundPopState);
         }
-        if (this.mediator) {this.mediator.removeEventListener('router:navigate', this.boundMediatorNavigate);}
+        if (this.boundMediator) {
+            this.boundMediator.removeEventListener('router:navigate', this.boundMediatorNavigate);
+            this.boundMediator = false;
+        }
         this.listenersInitialized = false;
         return this;
     }
@@ -131,8 +159,7 @@ class Router {
         const location = new URL(anchor.getAttribute('href') || '', window.location.href || `${window.location.origin}/`);
         if (location.origin !== window.location.origin) {return true;}
         e.preventDefault();
-        this.url = `${location.pathname}${location.search}${location.hash}`;
-        this.navigate(undefined, {}, false);
+        this.navigate(`${location.pathname}${location.search}${location.hash}`, {}, false);
         return this;
     }
 
@@ -188,14 +215,20 @@ class Router {
 
     /** Select a route, enforce its guard, transition view lifecycles, and update browser history when available. */
     navigate(url?: string, mediatorData?: NavigationData, isPopState = false) {
+        const previousUrl = this.url;
+        const previousSelectedRoute = this.route;
+        const previousLocationData = this.locationData;
         if (url !== undefined) {this.url = url;}
         if (!this.url) {this.url = this.getCurrentUrl();}
         const normalizedUrl = this.normalizeBrowserUrl(this.url);
-        if (normalizedUrl === null) {return false;}
+        if (normalizedUrl === null) {
+            this.url = previousUrl;
+            return false;
+        }
         this.url = normalizedUrl;
         this.route = null;
         const pathname = new URL(this.url, this.getOrigin()).pathname;
-        for (const route in this.routes) {
+        for (const route of Object.keys(this.routes)) {
             if (route === 'defaultRoute' || (pathname !== route && !pathname.startsWith(`${route}/`))) {continue;}
             if (!this.route || route.length > this.route.length) {this.route = route;}
         }
@@ -203,7 +236,11 @@ class Router {
         if (!this.route && this.routes.defaultRoute) {this.route = 'defaultRoute';}
         if (this.route) {
             const selected = this.routes[this.route]!;
-            if (typeof selected !== 'function' && selected.secure && selected.secure(this.scope, this.locationData) !== true) {
+            if ((typeof selected !== 'function' && selected.secure && selected.secure(this.scope, this.locationData) !== true) ||
+                !this.isRunnableRoute(selected)) {
+                this.url = previousUrl;
+                this.route = previousSelectedRoute;
+                this.locationData = previousLocationData;
                 return false;
             }
             const previous = this.previousRoute ? this.routes[this.previousRoute] : undefined;
@@ -214,10 +251,8 @@ class Router {
                 selected(this.scope, this.locationData);
             } else if (typeof selected.view === 'function') {
                 selected.view(this.scope, this.locationData);
-            } else if (selected.view && typeof selected.view.initialize === 'function') {
-                selected.view.initialize(this.scope, this.locationData);
             } else {
-                return false;
+                selected.view!.initialize!(this.scope, this.locationData);
             }
             this.applyPageContext(selected);
             this.previousRoute = this.route;

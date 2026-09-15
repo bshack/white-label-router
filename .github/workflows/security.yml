@@ -13,17 +13,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24.21.0
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run lint
       - run: npm run build
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: generated-dist
           path: dist
@@ -36,7 +36,7 @@ jobs:
       - run: npm pack --dry-run
       - name: Create packed package
         run: npm pack --silent
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: packed-package
           path: '*.tgz'
@@ -51,6 +51,20 @@ jobs:
           npm install --ignore-scripts "$GITHUB_WORKSPACE/$PACKAGE" >/dev/null
           node -e "const Router=require('white-label-router'); if (typeof Router !== 'function') process.exit(1)"
 
+  minimum-node-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.18.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+
   package-manager-compatibility:
     needs: test-build-audit
     runs-on: ubuntu-latest
@@ -60,10 +74,10 @@ jobs:
       matrix:
         package-manager: [npm, yarn, pnpm]
     steps:
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24.21.0
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: packed-package
           path: package
