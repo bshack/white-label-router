@@ -1,0 +1,23 @@
+name: Regenerate lockfile
+
+on:
+  push:
+    branches:
+      - modernize-mediator-eventtarget
+
+permissions:
+  contents: read
+
+jobs:
+  lockfile:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.21.0
+      - run: npm install --package-lock-only --ignore-scripts
+      - uses: actions/upload-artifact@v7
+        with:
+          name: regenerated-lockfile
+          path: package-lock.json
