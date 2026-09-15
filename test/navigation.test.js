@@ -92,6 +92,9 @@ test('browser navigation normalizes same-origin absolute URLs and rejects cross-
     const router = new Router();
     router.routes = {'/page': () => true};
     assert.equal(router.normalizeBrowserUrl(''), '/');
+    window.location.href = '';
+    assert.equal(router.normalizeBrowserUrl('/page'), '/page');
+    window.location.href = 'https://example.test/';
     assert.equal(router.navigate('https://example.test/page?q=1#details'), router);
     assert.equal(router.url, '/page?q=1#details');
     assert.deepEqual(history.at(-1), ['/page?q=1#details', '', '/page?q=1#details']);
@@ -106,7 +109,10 @@ test('reassigning mediator moves the owned router:navigate subscription', () => 
     const first = new EventTarget();
     const second = new EventTarget();
     router.routes = {'/first': () => true, '/second': () => true};
+    assert.equal(router.mediator, false);
     router.mediator = first;
+    router.mediator = first;
+    assert.equal(router.mediator, first);
     router.addListeners();
     router.mediator = second;
 
