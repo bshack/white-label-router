@@ -138,13 +138,13 @@ router.routes = {
 };
 ```
 
-`secure()` must return exactly `true` to allow navigation. On a successful route change, the previous route's `destroy()` runs before the next route's `initialize()`.
+`secure()` must return exactly `true` to allow navigation. Router validates the destination guard and runnable view behavior before tearing down the current route. On a successful route change, the previous route's `destroy()` then runs before the next route's `initialize()`.
 
 ## Matching
 
 Routes match complete path boundaries. `/products` matches `/products` and `/products/42`, but not `/products-old`.
 
-When multiple route prefixes match, Router selects the **longest matching route**, so specific routes win without depending on object insertion order:
+When multiple route prefixes match, Router selects the **longest matching route**, so specific routes win without depending on object insertion order. Only own route-table properties participate in matching:
 
 ```js
 router.routes = {
@@ -185,6 +185,8 @@ const result = router.navigate('/products/42', {
 
 In browsers, successful navigation updates history unless the call represents `popstate`. On servers it dispatches without History API effects.
 
+Rejected navigation is atomic from Router's perspective: cross-origin browser URLs, failed guards, and routes without runnable view behavior return `false` without destroying the current route, pushing browser history, or replacing the last successful `url`, selected route, or location payload.
+
 Calling `navigate()` without a URL dispatches the current browser URL. In a non-browser runtime the safe default is `/`; server applications should normally supply the request URL explicitly.
 
 ## Mediator integration
@@ -208,7 +210,7 @@ mediator.dispatchEvent(new CustomEvent('router:navigate', {
 }));
 ```
 
-The `CustomEvent.detail` value becomes `location.data.mediator`. `destroy()` removes the listener owned by Router. Repeated listener initialization is idempotent.
+The `CustomEvent.detail` value becomes `location.data.mediator`. `destroy()` removes the listener owned by Router. Repeated listener initialization is idempotent. Reassigning `router.mediator` while listeners are active removes `router:navigate` from the previous mediator before subscribing to the replacement.
 
 Router does not import or require `white-label-mediator`; the integration is structural so another compatible EventTarget can be used instead.
 
@@ -232,11 +234,11 @@ Custom mediator objects assigned to `router.mediator` must now implement `addEve
 
 | Member | Behavior | Returns |
 | --- | --- | --- |
-| `routes` | Ordered route table of functions or lifecycle route objects. | Configuration property; not a method. |
+| `routes` | Route table of functions or lifecycle route objects; matching uses the longest own path prefix, not insertion order. | Configuration property; not a method. |
 | `scope` | Application scope passed to route callbacks. | Configuration property; not a method. |
-| `mediator` | Optional EventTarget-compatible source for `router:navigate`. | Configuration property; not a method. |
+| `mediator` | Optional EventTarget-compatible source for `router:navigate`; active subscriptions move when this property changes. | Configuration property; not a method. |
 | `initialize(url?)` | Dispatch the browser URL or an explicit server URL and attach applicable listeners. | The same `Router` instance. |
-| `navigate(url?, data?, isPopState?)` | Match and run a route; update browser history when appropriate. | The same `Router` instance on success; `false` for cross-origin browser URLs, rejected guards, or routes without runnable view behavior. |
+| `navigate(url?, data?, isPopState?)` | Match and run a route; update browser history when appropriate. Rejected navigation preserves the current route state. | The same `Router` instance on success; `false` for cross-origin browser URLs, rejected guards, or routes without runnable view behavior. |
 | `addListeners()` | Attach browser and optional mediator listeners once. | The same `Router` instance. |
 | `removeListeners()` | Release listeners owned by this router. | The same `Router` instance. |
 | `destroy()` | Release routing listeners. | The same `Router` instance after cleanup. |
@@ -264,7 +266,7 @@ The default focus selector is `main h1`. Set `focus: false` for an in-page refin
 
 ## Browser history behavior
 
-Initialization dispatches the current URL without adding a duplicate history entry. Back/forward navigation reads `window.location`—including path, query, and hash—even when history state is null or belongs to another application. History state is not treated as the authoritative URL.
+Initialization dispatches the current URL without adding a duplicate history entry. Back/forward navigation reads `window.location`—including path, query, and hash—even when history state is null or belongs to another application. History state is not treated as the authoritative URL. Rejected navigation does not add a history entry.
 
 ## TypeScript
 
@@ -294,7 +296,7 @@ npm run audit
 npm pack --dry-run
 ```
 
-Tests cover browser behavior, DOM-free server routing, and parity of the shared route contract. Coverage enforces 100% statements, branches, functions, and lines per implementation file. CI builds authored source, uploads generated artifacts for inspection, audits dependencies, packs the package, and verifies the packed public API across npm, Yarn, and pnpm.
+Tests cover browser behavior, DOM-free server routing, atomic rejected navigation, mediator reassignment, and parity of the shared route contract. Coverage enforces 100% statements, branches, functions, and lines per implementation file. CI verifies both the documented Node 22.18 minimum and the primary Node 24 line, builds authored source, audits dependencies, packs the package, and verifies the packed public API across npm, Yarn, and pnpm.
 
 Edit `src/*.ts` and regenerate `dist`; do not edit generated files directly.
 
