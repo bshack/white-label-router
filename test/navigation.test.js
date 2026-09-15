@@ -26,10 +26,10 @@ test('default route initializes, reinitializes, and handles browser back without
     assert.equal(router.url, '/previous?q=1#section');
     assert.equal(history.length, 1);
     router.destroy();
-    router.mediator = {on() {}, removeListener() {}};
+    router.mediator = {addEventListener() {}, removeEventListener() {}};
     router.addListeners(); router.removeListeners();
-    router.boundMediatorNavigate();
-    router.boundMediatorNavigate({url: '/mediator'});
+    router.boundMediatorNavigate(new Event('router:navigate'));
+    router.boundMediatorNavigate(new CustomEvent('router:navigate', {detail: {url: '/mediator'}}));
     assert.equal(router.url, '/mediator');
 });
 test('route guards, titles, function handlers and lifecycle teardown retain ordering', t => {
