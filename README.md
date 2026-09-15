@@ -171,7 +171,7 @@ Routes receive the configured `scope` and a location object:
 }
 ```
 
-`data.url` contains path segments after the matched prefix, `data.query` contains parsed query values, and `data.mediator` contains navigation data supplied programmatically or through the mediator. Values are URI-decoded with standard WHATWG URL APIs; applications must still validate untrusted values.
+`data.url` contains path segments after the matched prefix, `data.query` contains parsed query values, and `data.mediator` contains navigation data supplied programmatically or through `CustomEvent.detail`. Values are URI-decoded with standard WHATWG URL APIs; applications must still validate untrusted values.
 
 ## Programmatic navigation
 
@@ -189,7 +189,7 @@ Calling `navigate()` without a URL dispatches the current browser URL. In a non-
 
 ## Mediator integration
 
-Assign any EventEmitter-compatible mediator that provides `on()` and `removeListener()`:
+Assign any standards-based event target that provides `addEventListener()` and `removeEventListener()`. `white-label-mediator` is the first-party implementation:
 
 ```js
 import Mediator from 'white-label-mediator';
@@ -200,13 +200,33 @@ const router = new Router();
 router.mediator = mediator;
 router.initialize();
 
-mediator.emit('router:navigate', {
-    url: '/account',
-    reason: 'Session refreshed'
-});
+mediator.dispatchEvent(new CustomEvent('router:navigate', {
+    detail: {
+        url: '/account',
+        reason: 'Session refreshed'
+    }
+}));
 ```
 
-The complete event object becomes `location.data.mediator`. `destroy()` removes listeners owned by Router. Repeated listener initialization is idempotent.
+The `CustomEvent.detail` value becomes `location.data.mediator`. `destroy()` removes the listener owned by Router. Repeated listener initialization is idempotent.
+
+Router does not import or require `white-label-mediator`; the integration is structural so another compatible EventTarget can be used instead.
+
+## Migrating from Router 5
+
+Router 6 changes only the optional mediator boundary. Replace EventEmitter-style `router:navigate` publishing with a `CustomEvent` and move the payload to `detail`:
+
+```js
+// Router 5 / Mediator 4
+mediator.emit('router:navigate', {url: '/account'});
+
+// Router 6 / Mediator 5
+mediator.dispatchEvent(new CustomEvent('router:navigate', {
+    detail: {url: '/account'}
+}));
+```
+
+Custom mediator objects assigned to `router.mediator` must now implement `addEventListener()` and `removeEventListener()` instead of `on()` and `removeListener()`.
 
 ## Public API
 
@@ -214,7 +234,7 @@ The complete event object becomes `location.data.mediator`. `destroy()` removes 
 | --- | --- | --- |
 | `routes` | Ordered route table of functions or lifecycle route objects. | Configuration property; not a method. |
 | `scope` | Application scope passed to route callbacks. | Configuration property; not a method. |
-| `mediator` | Optional EventEmitter-compatible source for `router:navigate`. | Configuration property; not a method. |
+| `mediator` | Optional EventTarget-compatible source for `router:navigate`. | Configuration property; not a method. |
 | `initialize(url?)` | Dispatch the browser URL or an explicit server URL and attach applicable listeners. | The same `Router` instance. |
 | `navigate(url?, data?, isPopState?)` | Match and run a route; update browser history when appropriate. | The same `Router` instance on success; `false` for cross-origin browser URLs, rejected guards, or routes without runnable view behavior. |
 | `addListeners()` | Attach browser and optional mediator listeners once. | The same `Router` instance. |
