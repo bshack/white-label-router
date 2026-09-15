@@ -214,22 +214,6 @@ The `CustomEvent.detail` value becomes `location.data.mediator`. `destroy()` rem
 
 Router does not import or require `white-label-mediator`; the integration is structural so another compatible EventTarget can be used instead.
 
-## Migrating from Router 5
-
-Router 6 changes only the optional mediator boundary. Replace EventEmitter-style `router:navigate` publishing with a `CustomEvent` and move the payload to `detail`:
-
-```js
-// Router 5 / Mediator 4
-mediator.emit('router:navigate', {url: '/account'});
-
-// Router 6 / Mediator 5
-mediator.dispatchEvent(new CustomEvent('router:navigate', {
-    detail: {url: '/account'}
-}));
-```
-
-Custom mediator objects assigned to `router.mediator` must now implement `addEventListener()` and `removeEventListener()` instead of `on()` and `removeListener()`.
-
 ## Public API
 
 | Member | Behavior | Returns |
