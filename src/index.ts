@@ -271,7 +271,7 @@ class Router {
         if (url !== undefined && typeof url !== 'string') {return false;}
 
         let candidateInput = url !== undefined ? url : this.url;
-        if (!candidateInput) {candidateInput = this.isBrowserRuntime() ? this.getCurrentUrl() : '/';}
+        if (!candidateInput) {candidateInput = this.getCurrentUrl();}
         const parsedUrl = this.parseNavigationUrl(candidateInput);
         if (!parsedUrl) {return false;}
         if (this.isBrowserRuntime() && parsedUrl.origin !== window.location.origin) {return false;}
