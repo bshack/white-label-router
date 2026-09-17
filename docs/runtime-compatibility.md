@@ -9,15 +9,21 @@ const router = new Router();
 router.initialize();
 ```
 
-Server applications pass the request URL explicitly:
+Server applications should pass the host's original request URL representation explicitly. A Web `Request` already provides an absolute URL:
 
 ```js
 const router = new Router();
 router.routes = routes;
+router.initialize(request.url);
+```
+
+Framework and Node HTTP adapters may instead expose an authoritative relative request URL, for example:
+
+```js
 router.initialize(req.originalUrl);
 ```
 
-The router does not depend on Express. An Express request URL, Node HTTP request URL, or equivalent framework URL can be supplied. Browser-only effects—History API updates, delegated link interception, document title, and focus—are skipped when `window` and `document` are unavailable.
+The router does not depend on Express. An absolute Web `Request.url`, an Express request URL, a Node HTTP request URL, or an equivalent host URL can be supplied. Preserve the original URL representation instead of parsing an absolute URL and rebuilding it from `pathname + search`; a leading `//` pathname can otherwise be reinterpreted as an authority when parsed again. Browser-only effects—History API updates, delegated link interception, document title, and focus—are skipped when `window` and `document` are unavailable.
 
 ## Request isolation
 
@@ -29,4 +35,4 @@ Route `secure` callbacks are navigation guards. On the server they may participa
 
 ## URL behavior
 
-Relative request URLs are the recommended server input. Query parsing, duplicate-query handling, path-boundary matching, malformed percent-encoded path fragments, route ordering, default routes, and lifecycle ordering follow the same contract as browser navigation.
+Absolute and relative request URLs use the same WHATWG URL parsing contract as browser navigation. Query parsing, duplicate-query handling, path-boundary matching, malformed percent-encoded path fragments, route ordering, default routes, and lifecycle ordering follow the same contract across runtimes. A malformed URL candidate is rejected with `false` before Router state changes rather than being committed or thrown through normal navigation flow.
