@@ -86,23 +86,72 @@ test('most-specific matching is independent of route declaration order and inher
     router.navigate('/inherited');
     assert.equal(router.route, null);
     assert.deepEqual(inheritedCalls, []);
+
+    router.routes = Object.create({defaultRoute: () => inheritedCalls.push('default')});
+    router.navigate('/missing');
+    assert.equal(router.route, null);
+    assert.deepEqual(inheritedCalls, []);
 });
-test('browser navigation normalizes same-origin absolute URLs and rejects cross-origin URLs without corrupting current state', t => {
+test('browser navigation uses one same-origin URL interpretation for matching, location data, and history', t => {
     const history = browser(t);
     const router = new Router();
-    router.routes = {'/page': () => true};
+    let sensitiveCalls = 0;
+    router.routes = {'/page': () => true, '/sensitive': () => sensitiveCalls++};
     assert.equal(router.normalizeBrowserUrl(''), '/');
     window.location.href = '';
     assert.equal(router.normalizeBrowserUrl('/page'), '/page');
     window.location.href = 'https://example.test/';
     assert.equal(router.navigate('https://example.test/page?q=1#details'), router);
     assert.equal(router.url, '/page?q=1#details');
-    assert.deepEqual(history.at(-1), ['/page?q=1#details', '', '/page?q=1#details']);
+    assert.deepEqual(history.at(-1), ['/page?q=1#details', '', 'https://example.test/page?q=1#details']);
     const previousHistoryLength = history.length;
     assert.equal(router.navigate('https://outside.test/page'), false);
     assert.equal(history.length, previousHistoryLength);
     assert.equal(router.url, '/page?q=1#details');
     assert.equal(router.route, '/page');
+
+    assert.equal(router.navigate('https://example.test//outside.test/sensitive'), router);
+    assert.equal(router.url, '//outside.test/sensitive');
+    assert.equal(router.route, null);
+    assert.equal(sensitiveCalls, 0);
+    assert.deepEqual(history.at(-1), ['//outside.test/sensitive', '', 'https://example.test//outside.test/sensitive']);
+    router.setLocationData();
+    assert.equal(router.locationData.url, '//outside.test/sensitive');
+    assert.deepEqual(router.locationData.data.url, ['outside.test', 'sensitive']);
+
+    assert.equal(router.normalizeBrowserUrl('http://['), null);
+});
+test('invalid navigation input and mediator payloads reject without changing Router state', () => {
+    const router = new Router();
+    router.routes = {'/allowed': () => true};
+    router.navigate('/allowed', {source: 'allowed'});
+    const previousLocationData = router.locationData;
+
+    for (const invalidUrl of ['http://[', 'https://example.test:99999']) {
+        assert.equal(router.navigate(invalidUrl), false);
+        assert.equal(router.url, '/allowed');
+        assert.equal(router.route, '/allowed');
+        assert.equal(router.locationData, previousLocationData);
+    }
+    assert.equal(router.navigate(42), false);
+    assert.equal(router.normalizeBrowserUrl('/server'), '/server');
+
+    router.url = 'http://[';
+    router.setLocationData();
+    assert.equal(router.locationData, previousLocationData);
+    router.url = '/allowed';
+
+    const mediator = new EventTarget();
+    router.mediator = mediator;
+    router.addListeners();
+    assert.doesNotThrow(() => mediator.dispatchEvent(new CustomEvent('router:navigate', {detail: {url: 'http://['}})));
+    mediator.dispatchEvent(new CustomEvent('router:navigate', {detail: {url: 42}}));
+    mediator.dispatchEvent(new CustomEvent('router:navigate', {detail: []}));
+    mediator.dispatchEvent(new CustomEvent('router:navigate', {detail: 'invalid'}));
+    assert.equal(router.url, '/allowed');
+    assert.equal(router.route, '/allowed');
+    assert.equal(router.locationData, previousLocationData);
+    router.destroy();
 });
 test('reassigning mediator moves the owned router:navigate subscription', () => {
     const router = new Router();
@@ -139,6 +188,22 @@ test('rejected guards preserve the previously successful router state', () => {
     assert.equal(router.locationData, previousLocationData);
     assert.equal(router.previousRoute, '/allowed');
 });
+test('rejected popstate keeps the last successful Router URL and route', t => {
+    browser(t);
+    const router = new Router();
+    router.routes = {
+        '/allowed': () => true,
+        '/blocked': {secure: () => false, view: () => true}
+    };
+    router.navigate('/allowed');
+    const previousLocationData = router.locationData;
+    window.location.pathname = '/blocked';
+    assert.equal(router.eventPopState(), router);
+    assert.equal(router.url, '/allowed');
+    assert.equal(router.route, '/allowed');
+    assert.equal(router.locationData, previousLocationData);
+    assert.equal(window.location.pathname, '/blocked');
+});
 test('page context updates title and focuses the configured target', t => {
     browser(t);
     const target = {focused: false, hasAttribute: () => false, setAttribute(name, value) {this[name] = value;}, focus() {this.focused = true;}};
@@ -154,7 +219,7 @@ test('page context updates title and focuses the configured target', t => {
     router.applyPageContext(() => {});
     assert.equal(router.pageTitle, null);
 });
-test('click handling preserves browser actions and handles text-node targets', t => {
+test('click handling preserves browser actions, document base URLs, and text-node targets', t => {
     browser(t);
     const router = new Router();
     let navigations = 0;
@@ -173,5 +238,12 @@ test('click handling preserves browser actions and handles text-node targets', t
     window.location.href = '';
     router.eventPushStateClick(event({target: {closest: () => anchor({})}}));
     assert.equal(router.url, '/');
+    assert.equal(navigations, 2);
+
+    document.baseURI = 'https://outside.test/';
+    let prevented = false;
+    const basedAnchor = {href: 'https://outside.test/sensitive', getAttribute: name => name === 'href' ? '/sensitive' : null, hasAttribute: () => false};
+    router.eventPushStateClick(event({target: {closest: () => basedAnchor}, preventDefault() {prevented = true;}}));
+    assert.equal(prevented, false);
     assert.equal(navigations, 2);
 });
