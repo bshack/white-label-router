@@ -67,7 +67,7 @@ router.initialize();
 
 ### Server
 
-Pass the request URL explicitly. No `window` or `document` is required:
+Pass a fully qualified request URL when possible. No `window` or `document` is required:
 
 ```js
 const router = new Router();
@@ -75,10 +75,10 @@ router.routes = {
     '/products': (_scope, location) => console.log(location.data.url),
     defaultRoute: () => true
 };
-router.initialize('/products/42?color=blue');
+router.initialize('https://example.com/products/42?color=blue');
 ```
 
-Browser-only history, click interception, focus, and document-title effects are skipped on the server. Scope mutable routing state per request when appropriate.
+Browser-only history, click interception, focus, and document-title effects are skipped on the server. Scope mutable routing state per request when appropriate. If a host exposes only a raw relative HTTP request target, preserve that target's path semantics at the adapter boundary before handing Router an absolute URL; see [Serverless and function runtimes](#serverless-and-function-runtimes).
 
 ## Progressive enhancement first
 
@@ -190,9 +190,9 @@ const result = router.navigate('/products/42', {
 
 In browsers, successful navigation updates history unless the call represents `popstate`. On servers it dispatches without History API effects.
 
-Rejected navigation is atomic from Router's perspective: cross-origin browser URLs, failed guards, and routes without runnable view behavior return `false` without destroying the current route, pushing browser history, or replacing the last successful URL, selected route, or location payload.
+Rejected navigation is atomic from Router's perspective: malformed or wrong-type URL candidates, cross-origin browser URLs, failed guards, and routes without runnable view behavior return `false` without destroying the current route, pushing browser history, or replacing the last successful URL, selected route, or location payload.
 
-Calling `navigate()` without a URL dispatches the current browser URL. In a non-browser runtime the safe default is `/`; server applications should normally supply the request URL explicitly.
+Calling `navigate()` without a URL dispatches the current browser URL. In a non-browser runtime the safe default is `/`; server applications should normally supply a fully qualified request URL explicitly.
 
 ## Mediator integration
 
@@ -220,14 +220,24 @@ Router does not import or require `white-label-mediator`; the integration is str
 
 ## Serverless and function runtimes
 
-Pass the incoming request URL explicitly when Router runs inside a serverless function. The server path uses the same matching, query parsing, guards, and route lifecycle without requiring `window` or `document`.
+Pass the incoming request URL explicitly when Router runs inside a serverless function. A Web `Request` already supplies a fully qualified URL, so preserve it directly:
 
 ```js
-const requestUrl = new URL(request.url);
 const router = new Router();
 router.routes = routes;
-router.initialize(`${requestUrl.pathname}${requestUrl.search}`);
+router.initialize(request.url);
 ```
+
+Do not parse that absolute URL and rebuild it from `pathname + search`; a pathname beginning `//` can change meaning when reparsed.
+
+Some Node HTTP frameworks expose only a raw origin-form request target such as `/products/42?color=blue`. Prefix that raw target with the application's configured origin without feeding the target through `new URL(raw, origin)` first:
+
+```js
+const applicationOrigin = 'https://example.com';
+router.initialize(`${applicationOrigin}${req.originalUrl}`);
+```
+
+This assumes the adapter's raw request target begins with `/`. If a host can also supply absolute-form request targets, detect and preserve those separately. A raw target beginning `//` is a path in HTTP origin-form but a network-path reference to WHATWG `URL`; handing `//...` directly to Router as a relative URL changes its meaning.
 
 Create a request-scoped Router when its location state, mediator, route lifecycle, or other mutable configuration belongs to one invocation. Warm function processes may serve sequential or overlapping requests, so sharing one mutable Router can mix location/lifecycle state unless that process-wide lifetime is intentional.
 
@@ -264,7 +274,7 @@ Initialization dispatches the current URL without adding a duplicate history ent
 | `navigationRoot` | Optional browser `Document`/`Element` that owns `data-pushstate` click interception; `null` uses `document`. Active listeners move when reassigned. | Configuration property. |
 | `mediator` | Optional EventTarget-compatible source for `router:navigate`; active subscriptions move when this property changes. | Configuration property. |
 | `initialize(url?)` | Dispatch the browser URL or an explicit server URL and attach applicable listeners. | The same `Router` instance. |
-| `navigate(url?, data?, isPopState?)` | Match and run a route; update browser history when appropriate. Rejected navigation preserves current route state. | The same Router on success; `false` for rejected navigation. |
+| `navigate(url?, data?, isPopState?)` | Match and run a route; update browser history when appropriate. Invalid/malformed URL candidates and other rejected navigation preserve current route state. | The same Router on success; `false` for rejected navigation. |
 | `addListeners()` | Attach browser and optional mediator listeners once. | The same `Router` instance. |
 | `removeListeners()` | Release listeners owned by this router. | The same `Router` instance. |
 | `destroy()` | Release routing listeners. | The same `Router` instance after cleanup. |
