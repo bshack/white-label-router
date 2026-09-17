@@ -48,7 +48,7 @@ class Router {
         this.boundPopState = this.eventPopState.bind(this);
         this.boundMediatorNavigate = (event: Event) => {
             const detail = (event as CustomEvent<unknown>).detail;
-            if (detail == null) {
+            if (detail === undefined || detail === null) {
                 this.navigate(undefined, {}, false);
                 return;
             }
@@ -212,7 +212,10 @@ class Router {
         const target = anchor.getAttribute('target');
         if (anchor.hasAttribute('download') || (target && target.toLowerCase() !== '_self')) {return true;}
         const href = (anchor as HTMLAnchorElement).href || anchor.getAttribute('href') || '';
-        const location = new URL(href, document.baseURI || window.location.href || `${window.location.origin}/`);
+        const baseUrl = typeof document !== 'undefined' && document.baseURI
+            ? document.baseURI
+            : window.location.href || `${window.location.origin}/`;
+        const location = new URL(href, baseUrl);
         if (location.origin !== window.location.origin) {return true;}
         e.preventDefault();
         this.navigate(`${location.pathname}${location.search}${location.hash}`, {}, false);
