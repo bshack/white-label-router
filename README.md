@@ -10,7 +10,7 @@
 
 ## Why it exists
 
-White Label keeps URLs, links, history, and server requests visible rather than replacing them with a proprietary navigation model. Router adds the application boundary around those platform primitives while preserving normal browser behavior whenever enhancement does not apply.
+White Label keeps URLs, links, history, and server requests visible rather than replacing them with a proprietary navigation model. Router adds an application boundary around those platform primitives while preserving normal browser behavior whenever enhancement does not apply.
 
 Use it independently or compose it with the rest of White Label:
 
@@ -20,6 +20,16 @@ Use it independently or compose it with the rest of White Label:
 - [`generator-white-label`](https://github.com/bshack/white-label) demonstrates the complete composition.
 
 The package has no runtime dependency on the other White Label packages.
+
+## Where it fits
+
+Router is especially useful when URL-backed behavior should be added **without turning the whole page into a client-side application**. Typical fits include progressively enhanced public sites, server-rendered applications, commerce/CMS frontends, account areas, search/filter experiences, and existing applications being modernized one region at a time.
+
+For incremental adoption, `navigationRoot` can limit link interception to one owned DOM region while the rest of the page keeps its existing navigation behavior. This makes it possible for multiple independently owned enhancements to coexist without requiring one document-wide router.
+
+Router is not a replacement for server routes, authentication/authorization, CDN or API-gateway routing, or a backend framework. Highly client-owned applications can still use it, but its strongest advantage is preserving real links and server-requestable URLs while adding client behavior selectively.
+
+See the [incremental server-rendered application guide](https://whitelabeljs.org/guides/incremental-javascript-for-server-rendered-apps/) for the broader integration pattern.
 
 ## Requirements
 
@@ -35,8 +45,6 @@ npm install white-label-router
 # or: yarn add white-label-router
 # or: pnpm add white-label-router
 ```
-
-The same entrypoint is used in browsers and servers:
 
 ```js
 import Router from 'white-label-router';
@@ -54,8 +62,6 @@ router.routes = {
     '/products': (_scope, location) => console.log(location.data.url),
     defaultRoute: () => true
 };
-
-// initialize() dispatches the current URL and returns the router for chaining.
 router.initialize();
 ```
 
@@ -74,23 +80,6 @@ router.initialize('/products/42?color=blue');
 
 Browser-only history, click interception, focus, and document-title effects are skipped on the server. Scope mutable routing state per request when appropriate.
 
-## Serverless and function runtimes
-
-Pass the incoming request URL explicitly when Router runs inside a serverless function. The server path uses the same matching, query parsing, guards, and route lifecycle without requiring `window` or `document`.
-
-```js
-const requestUrl = new URL(request.url);
-const router = new Router();
-router.routes = routes;
-router.initialize(`${requestUrl.pathname}${requestUrl.search}`);
-```
-
-Create a request-scoped Router when its location state, mediator, route lifecycle, or other mutable configuration belongs to one invocation. Warm function processes may serve sequential or overlapping requests, so sharing one mutable Router can mix location/lifecycle state unless that process-wide lifetime is intentional.
-
-Router handles **application routing inside the invocation**. It does not replace API Gateway routes, CDN routing, Vercel/Netlify/Cloudflare route configuration, load balancing, authentication infrastructure, or other cloud request plumbing.
-
-The package currently documents Node.js as its supported server runtime. Its DOM-free server path uses standard URL APIs, but that is not a blanket compatibility claim for every edge provider; verify the actual target runtime before deployment.
-
 ## Progressive enhancement first
 
 Public navigation should remain a real link:
@@ -102,6 +91,25 @@ Public navigation should remain a real link:
 `data-pushstate` opts the link into client-side enhancement. Links without it retain native behavior. Modified clicks, non-left clicks, downloads, alternate targets, and cross-origin URLs also remain native.
 
 This preserves keyboard behavior, context menus, no-JavaScript navigation, and crawler discovery. Public routes should have directly requestable URLs that return meaningful HTML and appropriate title, description, canonical, and robots metadata.
+
+### Scope enhancement to one existing region
+
+By default, Router listens for opted-in links across `document`. Existing server-rendered/CMS/commerce applications can constrain that ownership:
+
+```js
+const router = new Router();
+router.navigationRoot = document.querySelector('[data-product-refinements]');
+router.routes = {
+    '/search': (_scope, location) => {
+        applyFilters(location.data.query);
+    }
+};
+router.initialize();
+```
+
+Only click events that reach `navigationRoot` are considered by that Router. Links elsewhere on the page keep the host application's behavior. Reassigning `navigationRoot` while listeners are active moves the owned click listener to the new root. Setting it to `null` restores document-wide interception.
+
+`navigationRoot` is deliberately separate from `scope`: `navigationRoot` controls where enhanced-link clicks are observed; `scope` is application data passed to route callbacks.
 
 ## Define routes
 
@@ -123,7 +131,6 @@ router.routes = {
         title: 'Orders',
         focus: '#orders-title',
         secure(scope, location) {
-            // Guards must return exactly true to allow navigation.
             return Boolean(window.currentUser);
         },
         view: {
@@ -138,7 +145,7 @@ router.routes = {
 };
 ```
 
-`secure()` must return exactly `true` to allow navigation. Router validates the destination guard and runnable view behavior before tearing down the current route. On a successful route change, the previous route's `destroy()` then runs before the next route's `initialize()`.
+`secure()` must return exactly `true` to allow navigation. Client guards are interface behavior, not server authorization. Router validates the destination guard and runnable view behavior before tearing down the current route. On a successful route change, the previous route's `destroy()` runs before the next route's `initialize()`.
 
 ## Matching
 
@@ -179,13 +186,11 @@ Routes receive the configured `scope` and a location object:
 const result = router.navigate('/products/42', {
     source: 'featured-products'
 });
-
-// `result` is the router on success or false when navigation is rejected.
 ```
 
 In browsers, successful navigation updates history unless the call represents `popstate`. On servers it dispatches without History API effects.
 
-Rejected navigation is atomic from Router's perspective: cross-origin browser URLs, failed guards, and routes without runnable view behavior return `false` without destroying the current route, pushing browser history, or replacing the last successful `url`, selected route, or location payload.
+Rejected navigation is atomic from Router's perspective: cross-origin browser URLs, failed guards, and routes without runnable view behavior return `false` without destroying the current route, pushing browser history, or replacing the last successful URL, selected route, or location payload.
 
 Calling `navigate()` without a URL dispatches the current browser URL. In a non-browser runtime the safe default is `/`; server applications should normally supply the request URL explicitly.
 
@@ -198,7 +203,6 @@ import Mediator from 'white-label-mediator';
 
 const mediator = new Mediator();
 const router = new Router();
-
 router.mediator = mediator;
 router.initialize();
 
@@ -210,27 +214,26 @@ mediator.dispatchEvent(new CustomEvent('router:navigate', {
 }));
 ```
 
-The `CustomEvent.detail` value becomes `location.data.mediator`. `destroy()` removes the listener owned by Router. Repeated listener initialization is idempotent. Reassigning `router.mediator` while listeners are active removes `router:navigate` from the previous mediator before subscribing to the replacement.
+The `CustomEvent.detail` value becomes `location.data.mediator`. `destroy()` removes the listener owned by Router. Repeated listener initialization is idempotent. Reassigning `router.mediator` while listeners are active moves the `router:navigate` subscription to the replacement.
 
 Router does not import or require `white-label-mediator`; the integration is structural so another compatible EventTarget can be used instead.
 
-## Public API
+## Serverless and function runtimes
 
-| Member | Behavior | Returns |
-| --- | --- | --- |
-| `routes` | Route table of functions or lifecycle route objects; matching uses the longest own path prefix, not insertion order. | Configuration property; not a method. |
-| `scope` | Application scope passed to route callbacks. | Configuration property; not a method. |
-| `mediator` | Optional EventTarget-compatible source for `router:navigate`; active subscriptions move when this property changes. | Configuration property; not a method. |
-| `initialize(url?)` | Dispatch the browser URL or an explicit server URL and attach applicable listeners. | The same `Router` instance. |
-| `navigate(url?, data?, isPopState?)` | Match and run a route; update browser history when appropriate. Rejected navigation preserves the current route state. | The same `Router` instance on success; `false` for cross-origin browser URLs, rejected guards, or routes without runnable view behavior. |
-| `addListeners()` | Attach browser and optional mediator listeners once. | The same `Router` instance. |
-| `removeListeners()` | Release listeners owned by this router. | The same `Router` instance. |
-| `destroy()` | Release routing listeners. | The same `Router` instance after cleanup. |
-| `parseQueryString(query)` | Decode a query string using `URLSearchParams`. | A plain object containing the last value for each query key. |
-| `setLocationData(data?)` | Rebuild the current route location payload. | `undefined`; updates `locationData` in place. |
-| `applyPageContext(route)` | Update route title/focus context when applicable. | The same `Router` instance. |
-| `eventPushStateClick(event)` | Handle an eligible browser push-state click. | The same `Router` instance after handled navigation; `true` when native/default handling should continue. |
-| `eventPopState()` | Dispatch the current browser history location. | The same `Router` instance. |
+Pass the incoming request URL explicitly when Router runs inside a serverless function. The server path uses the same matching, query parsing, guards, and route lifecycle without requiring `window` or `document`.
+
+```js
+const requestUrl = new URL(request.url);
+const router = new Router();
+router.routes = routes;
+router.initialize(`${requestUrl.pathname}${requestUrl.search}`);
+```
+
+Create a request-scoped Router when its location state, mediator, route lifecycle, or other mutable configuration belongs to one invocation. Warm function processes may serve sequential or overlapping requests, so sharing one mutable Router can mix location/lifecycle state unless that process-wide lifetime is intentional.
+
+Router handles **application routing inside the invocation**. It does not replace API Gateway routes, CDN routing, Vercel/Netlify/Cloudflare route configuration, load balancing, authentication infrastructure, or other cloud request plumbing.
+
+The package currently documents Node.js as its supported server runtime. Its DOM-free server path uses standard URL APIs, but that is not a blanket compatibility claim for every edge provider; verify the actual target runtime before deployment.
 
 ## Title and focus
 
@@ -252,16 +255,35 @@ The default focus selector is `main h1`. Set `focus: false` for an in-page refin
 
 Initialization dispatches the current URL without adding a duplicate history entry. Back/forward navigation reads `window.location`—including path, query, and hash—even when history state is null or belongs to another application. History state is not treated as the authoritative URL. Rejected navigation does not add a history entry.
 
+## Public API
+
+| Member | Behavior | Returns |
+| --- | --- | --- |
+| `routes` | Route table of functions or lifecycle route objects; matching uses the longest own path prefix, not insertion order. | Configuration property. |
+| `scope` | Application scope passed to route callbacks. | Configuration property. |
+| `navigationRoot` | Optional browser `Document`/`Element` that owns `data-pushstate` click interception; `null` uses `document`. Active listeners move when reassigned. | Configuration property. |
+| `mediator` | Optional EventTarget-compatible source for `router:navigate`; active subscriptions move when this property changes. | Configuration property. |
+| `initialize(url?)` | Dispatch the browser URL or an explicit server URL and attach applicable listeners. | The same `Router` instance. |
+| `navigate(url?, data?, isPopState?)` | Match and run a route; update browser history when appropriate. Rejected navigation preserves current route state. | The same Router on success; `false` for rejected navigation. |
+| `addListeners()` | Attach browser and optional mediator listeners once. | The same `Router` instance. |
+| `removeListeners()` | Release listeners owned by this router. | The same `Router` instance. |
+| `destroy()` | Release routing listeners. | The same `Router` instance after cleanup. |
+| `parseQueryString(query)` | Decode a query string using `URLSearchParams`. | A plain object containing the last value for each query key. |
+| `setLocationData(data?)` | Rebuild the current route location payload. | `undefined`; updates `locationData` in place. |
+| `applyPageContext(route)` | Update route title/focus context when applicable. | The same `Router` instance. |
+| `eventPushStateClick(event)` | Handle an eligible browser push-state click. | The same Router after handled navigation; `true` when native/default handling should continue. |
+| `eventPopState()` | Dispatch the current browser history location. | The same `Router` instance. |
+
 ## TypeScript
 
 Implementation uses strict TypeScript and emits JavaScript, source maps, and declarations into `dist`.
 
 ```ts
 const router = new Router();
+router.navigationRoot = document.querySelector('main');
 const greeting: Router.Route = (scope, location) => {
     console.log(location.data.query.name);
 };
-
 router.routes['/hello'] = greeting;
 router.initialize();
 ```
@@ -280,7 +302,7 @@ npm run audit
 npm pack --dry-run
 ```
 
-Tests cover browser behavior, DOM-free server routing, atomic rejected navigation, mediator reassignment, and parity of the shared route contract. Coverage enforces 100% statements, branches, functions, and lines per implementation file. CI verifies both the documented Node 22.18 minimum and the primary Node 24 line, builds authored source, audits dependencies, packs the package, and verifies the packed public API across npm, Yarn, and pnpm.
+Tests cover browser behavior, scoped progressive navigation, DOM-free server routing, atomic rejected navigation, mediator reassignment, and parity of the shared route contract. Coverage enforces 100% statements, branches, functions, and lines per implementation file. CI verifies the documented Node minimum and primary Node line, audits dependencies, packs the package, and verifies the public API across npm, Yarn, and pnpm.
 
 Edit `src/*.ts` and regenerate `dist`; do not edit generated files directly.
 

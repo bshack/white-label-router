@@ -1,7 +1,7 @@
 {
   "name": "white-label-router",
-  "version": "6.0.0",
-  "description": "Framework-independent TypeScript router for browser, server, and request-scoped Node.js functions with progressive enhancement, guards, and accessible navigation.",
+  "version": "6.1.0",
+  "description": "Framework-independent TypeScript router for progressive enhancement in browser, server-rendered, and Node.js applications, with scoped links, guards, and accessible navigation.",
   "sideEffects": false,
   "main": "dist/index.js",
   "files": [
@@ -30,6 +30,9 @@
     "client-side-routing",
     "history-api",
     "progressive-enhancement",
+    "incremental-adoption",
+    "html-first",
+    "server-rendered",
     "navigation",
     "accessibility",
     "framework-independent",

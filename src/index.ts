@@ -26,6 +26,8 @@ class Router {
     locationData: LocationData = {url: '', data: {url: [], mediator: undefined, query: {}}};
     private currentMediator: NavigationMediator | false = false;
     private boundMediator: NavigationMediator | false = false;
+    private currentNavigationRoot: Document | Element | null = null;
+    private boundNavigationRoot: Document | Element | null = null;
 
     /** Create an instance with its own state and listener references. */
     constructor() {
@@ -65,6 +67,22 @@ class Router {
             value.addEventListener('router:navigate', this.boundMediatorNavigate);
             this.boundMediator = value;
         }
+    }
+
+    get navigationRoot(): Document | Element | null {return this.currentNavigationRoot;}
+
+    /** Scope progressive link interception and move an active click listener when the root changes. */
+    set navigationRoot(value: Document | Element | null) {
+        if (value === this.currentNavigationRoot) {return;}
+        if (this.listenersInitialized && this.isBrowserRuntime()) {
+            this.boundNavigationRoot?.removeEventListener('click', this.boundPushStateClick as EventListener);
+            this.currentNavigationRoot = value;
+            const nextRoot = value || document;
+            nextRoot.addEventListener('click', this.boundPushStateClick as EventListener);
+            this.boundNavigationRoot = nextRoot;
+            return;
+        }
+        this.currentNavigationRoot = value;
     }
 
     /** True when browser navigation APIs are available. */
@@ -112,7 +130,9 @@ class Router {
     addListeners() {
         if (this.listenersInitialized) {return this;}
         if (this.isBrowserRuntime()) {
-            document.addEventListener('click', this.boundPushStateClick);
+            const navigationRoot = this.currentNavigationRoot || document;
+            navigationRoot.addEventListener('click', this.boundPushStateClick as EventListener);
+            this.boundNavigationRoot = navigationRoot;
             window.addEventListener('popstate', this.boundPopState);
         }
         if (this.currentMediator) {
@@ -133,7 +153,8 @@ class Router {
     removeListeners() {
         if (!this.listenersInitialized) {return this;}
         if (this.isBrowserRuntime()) {
-            document.removeEventListener('click', this.boundPushStateClick);
+            this.boundNavigationRoot?.removeEventListener('click', this.boundPushStateClick as EventListener);
+            this.boundNavigationRoot = null;
             window.removeEventListener('popstate', this.boundPopState);
         }
         if (this.boundMediator) {
