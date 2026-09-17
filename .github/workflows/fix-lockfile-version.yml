@@ -1,0 +1,33 @@
+name: Fix lockfile version
+
+on:
+  push:
+    branches: [fix/lockfile-version-6.1.0]
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24.21.0
+          cache: npm
+      - run: npm install --package-lock-only --ignore-scripts
+      - name: Verify package metadata
+        run: |
+          node -e "const p=require('./package.json'); const l=require('./package-lock.json'); if (p.version !== '6.1.0' || l.version !== p.version || l.packages[''].version !== p.version) process.exit(1)"
+      - name: Commit generated lockfile
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "Fix Router lockfile version metadata"
+          git push
