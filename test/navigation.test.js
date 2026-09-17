@@ -29,6 +29,7 @@ test('default route initializes, reinitializes, and handles browser back without
     router.mediator = {addEventListener() {}, removeEventListener() {}};
     router.addListeners(); router.removeListeners();
     router.boundMediatorNavigate(new Event('router:navigate'));
+    router.boundMediatorNavigate(new CustomEvent('router:navigate', {detail: null}));
     router.boundMediatorNavigate(new CustomEvent('router:navigate', {detail: {url: '/mediator'}}));
     assert.equal(router.url, '/mediator');
 });
