@@ -128,6 +128,32 @@ test('active lifecycle teardown is stable when its route object mutates in place
     assert.deepEqual(calls, ['old:init', 'old:destroy', 'next']);
 });
 
+test('initialized lifecycle remains tear-downable when page context throws', t => {
+    browser(t);
+    const router = new Router();
+    const calls = [];
+    document.querySelector = selector => {
+        if (selector === '[') {throw new SyntaxError('invalid selector');}
+        return null;
+    };
+    router.routes = {
+        '/broken-focus': {
+            focus: '[',
+            view: {
+                initialize: () => calls.push('init'),
+                destroy: () => calls.push('destroy')
+            }
+        },
+        '/next': () => calls.push('next')
+    };
+
+    assert.throws(() => router.navigate('/broken-focus'), /invalid selector/);
+    assert.deepEqual(calls, ['init']);
+
+    router.navigate('/next');
+    assert.deepEqual(calls, ['init', 'destroy', 'next']);
+});
+
 test('most-specific matching is independent of route declaration order and inherited properties', () => {
     const router = new Router();
     const calls = [];
