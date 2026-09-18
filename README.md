@@ -151,7 +151,7 @@ router.routes = {
 
 Routes match complete path boundaries. `/products` matches `/products` and `/products/42`, but not `/products-old`.
 
-When multiple route prefixes match, Router selects the **longest matching route**, so specific routes win without depending on object insertion order. Only own route-table properties participate in matching:
+When multiple route prefixes match, Router selects the **longest matching route**, so specific routes win without depending on object insertion order. Only own route-table properties participate in matching. If nothing matches and no own `defaultRoute` is configured, navigation is rejected; in browser click interception the real link remains native.
 
 ```js
 router.routes = {
@@ -190,7 +190,7 @@ const result = router.navigate('/products/42', {
 
 In browsers, successful navigation updates history unless the call represents `popstate`. On servers it dispatches without History API effects.
 
-Rejected navigation is atomic from Router's perspective: malformed or wrong-type URL candidates, cross-origin browser URLs, failed guards, and routes without runnable view behavior return `false` without destroying the current route, pushing browser history, or replacing the last successful URL, selected route, or location payload.
+Rejected navigation is atomic from Router's perspective: malformed or wrong-type URL candidates, cross-origin browser URLs, URLs with no matching route/default route, failed guards, and routes without runnable view behavior return `false` without destroying the current route, pushing browser history, or replacing the last successful URL, selected route, or location payload.
 
 Calling `navigate()` without a URL dispatches the current browser URL. In a non-browser runtime the safe default is `/`; server applications should normally supply a fully qualified request URL explicitly.
 
