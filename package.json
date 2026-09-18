@@ -1,6 +1,6 @@
 {
   "name": "white-label-router",
-  "version": "6.1.1",
+  "version": "6.1.2",
   "description": "Framework-independent TypeScript router for progressive enhancement in browser, server-rendered, and Node.js applications, with scoped links, guards, and accessible navigation.",
   "sideEffects": false,
   "main": "dist/index.js",
