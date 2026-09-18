@@ -215,7 +215,8 @@ class Router {
         const baseUrl = typeof document !== 'undefined' && document.baseURI
             ? document.baseURI
             : window.location.href || `${window.location.origin}/`;
-        const location = new URL(href, baseUrl);
+        let location: URL;
+        try {location = new URL(href, baseUrl);} catch {return true;}
         if (location.origin !== window.location.origin) {return true;}
         e.preventDefault();
         this.navigate(`${location.pathname}${location.search}${location.hash}`, {}, false);
