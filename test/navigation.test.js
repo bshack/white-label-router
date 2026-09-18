@@ -136,6 +136,8 @@ test('browser navigation uses one same-origin URL interpretation for matching, l
     assert.equal(router.navigate('https://example.test/page?q=1#details'), router);
     assert.equal(router.url, '/page?q=1#details');
     assert.deepEqual(history.at(-1), ['/page?q=1#details', '', 'https://example.test/page?q=1#details']);
+    router.setLocationData({source: 'browser'});
+    assert.equal(router.locationData.data.mediator.source, 'browser');
     const previousHistoryLength = history.length;
     assert.equal(router.navigate('https://outside.test/page'), false);
     assert.equal(history.length, previousHistoryLength);
@@ -163,6 +165,8 @@ test('invalid navigation input and mediator payloads reject without changing Rou
         assert.equal(router.locationData, previousLocationData);
     }
     assert.equal(router.navigate('/unmatched'), false);
+    router.routes['/undefined'] = undefined;
+    assert.equal(router.navigate('/undefined'), false);
     assert.equal(router.url, '/allowed');
     assert.equal(router.route, '/allowed');
     assert.equal(router.locationData, previousLocationData);
