@@ -301,9 +301,9 @@ class Router {
         if (!candidateRoute) {return false;}
 
         const candidateLocationData = this.buildLocationData(candidateUrl, candidateRoute, mediatorData, parsedUrl);
-        const selected = candidateRoute ? this.routes[candidateRoute] : undefined;
-        if (selected && ((typeof selected !== 'function' && selected.secure && selected.secure(this.scope, candidateLocationData) !== true) ||
-            !this.isRunnableRoute(selected))) {
+        const selected = this.routes[candidateRoute];
+        if (!selected || (typeof selected !== 'function' && selected.secure && selected.secure(this.scope, candidateLocationData) !== true) ||
+            !this.isRunnableRoute(selected)) {
             return false;
         }
 
