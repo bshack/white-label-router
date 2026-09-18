@@ -99,6 +99,35 @@ test('route-table replacement does not orphan the lifecycle that is already acti
     assert.deepEqual(calls, ['old:init', 'old:destroy', 'next']);
 });
 
+test('active lifecycle teardown is stable when its route object mutates in place', t => {
+    browser(t);
+    const router = new Router();
+    const calls = [];
+    const activeView = {
+        initialize() {calls.push('old:init');},
+        destroy() {
+            assert.equal(this, activeView);
+            calls.push('old:destroy');
+        }
+    };
+    const activeRoute = {view: activeView};
+
+    router.routes = {
+        '/page': activeRoute,
+        '/next': () => calls.push('next')
+    };
+    router.navigate('/page');
+
+    activeView.destroy = () => calls.push('mutated:destroy');
+    activeRoute.view = {
+        initialize: () => calls.push('mutated:init'),
+        destroy: () => calls.push('replacement:destroy')
+    };
+    router.navigate('/next');
+
+    assert.deepEqual(calls, ['old:init', 'old:destroy', 'next']);
+});
+
 test('most-specific matching is independent of route declaration order and inherited properties', () => {
     const router = new Router();
     const calls = [];
