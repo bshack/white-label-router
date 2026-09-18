@@ -131,6 +131,19 @@ class Router {
         return typeof route === 'function' || typeof route.view === 'function' ||
             Boolean(route.view && typeof route.view.initialize === 'function');
     }
+    /** Return the longest matching own route-table prefix, falling back to defaultRoute when configured. */
+    private matchRoute(pathname: string): string | null {
+        let candidateRoute: string | null = null;
+        for (const route of Object.keys(this.routes)) {
+            if (route === 'defaultRoute' || (pathname !== route && !pathname.startsWith(`${route}/`))) {continue;}
+            if (!candidateRoute || route.length > candidateRoute.length) {candidateRoute = route;}
+        }
+        if (!candidateRoute && Object.prototype.hasOwnProperty.call(this.routes, 'defaultRoute') && this.routes.defaultRoute) {
+            return 'defaultRoute';
+        }
+        return candidateRoute;
+    }
+
 
     /** Build decoded path, query, and mediator data for a navigation candidate. */
     private buildLocationData(url: string, route: string | null, mediatorData: NavigationData | undefined, parsedUrl: URL): LocationData {
@@ -216,8 +229,12 @@ class Router {
         const baseUrl = typeof document !== 'undefined' && document.baseURI
             ? document.baseURI
             : window.location.href || `${window.location.origin}/`;
-        const location = new URL(href, baseUrl);
+        let location: URL;
+        try {location = new URL(href, baseUrl);} catch {return true;}
         if (location.origin !== window.location.origin) {return true;}
+        const candidateRoute = this.matchRoute(location.pathname);
+        const selected = candidateRoute ? this.routes[candidateRoute] : undefined;
+        if (!selected || !this.isRunnableRoute(selected)) {return true;}
         e.preventDefault();
         this.navigate(`${location.pathname}${location.search}${location.hash}`, {}, false);
         return this;
@@ -280,19 +297,13 @@ class Router {
         const candidateUrl = this.isBrowserRuntime()
             ? `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
             : candidateInput;
-        let candidateRoute: string | null = null;
-        for (const route of Object.keys(this.routes)) {
-            if (route === 'defaultRoute' || (parsedUrl.pathname !== route && !parsedUrl.pathname.startsWith(`${route}/`))) {continue;}
-            if (!candidateRoute || route.length > candidateRoute.length) {candidateRoute = route;}
-        }
-        if (!candidateRoute && Object.prototype.hasOwnProperty.call(this.routes, 'defaultRoute') && this.routes.defaultRoute) {
-            candidateRoute = 'defaultRoute';
-        }
+        const candidateRoute = this.matchRoute(parsedUrl.pathname);
+        if (!candidateRoute) {return false;}
 
         const candidateLocationData = this.buildLocationData(candidateUrl, candidateRoute, mediatorData, parsedUrl);
-        const selected = candidateRoute ? this.routes[candidateRoute] : undefined;
-        if (selected && ((typeof selected !== 'function' && selected.secure && selected.secure(this.scope, candidateLocationData) !== true) ||
-            !this.isRunnableRoute(selected))) {
+        const selected = this.routes[candidateRoute];
+        if (!selected || (typeof selected !== 'function' && selected.secure && selected.secure(this.scope, candidateLocationData) !== true) ||
+            !this.isRunnableRoute(selected)) {
             return false;
         }
 
