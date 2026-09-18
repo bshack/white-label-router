@@ -325,14 +325,14 @@ class Router {
             } else {
                 selected.view!.initialize!(this.scope, this.locationData);
             }
-            this.applyPageContext(selected);
-            this.previousRoute = this.route;
             const selectedView = typeof selected !== 'function' && typeof selected.view === 'object'
                 ? selected.view
                 : undefined;
             this.activeDestroy = selectedView?.destroy
                 ? {receiver: selectedView, callback: selectedView.destroy}
                 : undefined;
+            this.applyPageContext(selected);
+            this.previousRoute = this.route;
         }
         if (!isPopState && this.isBrowserRuntime()) {
             window.history.pushState(this.url, this.pageTitle || '', parsedUrl.href);
