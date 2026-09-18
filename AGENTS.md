@@ -629,7 +629,7 @@ When modifying existing:
 - Data structures
 - Public behavior
 
-do not preserve backward compatibility through aliases, deprecated signatures, fallback code paths, adapters, or other compatibility shims. When the current contract requires an incompatible public change, implement the clean current API and communicate it with a Semantic Versioning major release and migration notes.
+preserve backward compatibility for the documented public API and established observable behavior from the current release line forward. Do not remove or rename public members, narrow accepted signatures, change entry points, or alter documented event/lifecycle semantics without explicit user approval and a deliberate Semantic Versioning plan. Prefer additive or internal fixes. Do not add aliases, deprecation shims, adapters, or fallback code paths automatically; when compatibility genuinely requires one, document the rationale, tests, migration path, and removal policy before implementation.
 
 Identify breaking changes before implementation.
 

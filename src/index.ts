@@ -3,9 +3,11 @@ interface NavigationData {url?: string; [key: string]: unknown}
 /** URL-derived values supplied to route handlers. */
 interface LocationData {url: string; data: {url: string[]; mediator: NavigationData | undefined; query: Record<string, string>}}
 type RouteHandler = (scope: Element | null, location: LocationData) => unknown;
+interface RouteViewLifecycle {initialize?: RouteHandler; destroy?: RouteHandler}
 /** An object route can own a function or a view lifecycle. */
-interface RouteObject {title?: string; focus?: string | false; secure?: RouteHandler; view?: RouteHandler | {initialize?: RouteHandler; destroy?: RouteHandler}}
+interface RouteObject {title?: string; focus?: string | false; secure?: RouteHandler; view?: RouteHandler | RouteViewLifecycle}
 type Route = RouteHandler | RouteObject;
+interface ActiveDestroy {receiver: RouteViewLifecycle; callback: RouteHandler}
 /** Minimal standards-based event target contract required by the router. */
 interface NavigationMediator {
     addEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
@@ -28,7 +30,7 @@ class Router {
     private boundMediator: NavigationMediator | false = false;
     private currentNavigationRoot: Document | Element | null = null;
     private boundNavigationRoot: Document | Element | null = null;
-    private activeRoute: Route | undefined;
+    private activeDestroy: ActiveDestroy | undefined;
 
     /** Create an instance with its own state and listener references. */
     constructor() {
@@ -311,9 +313,10 @@ class Router {
         this.route = candidateRoute;
         this.locationData = candidateLocationData;
         if (selected) {
-            const previous = this.activeRoute;
-            if (previous && typeof previous !== 'function' && typeof previous.view === 'object' && previous.view.destroy) {
-                previous.view.destroy(this.scope, this.locationData);
+            if (this.activeDestroy) {
+                const {receiver, callback} = this.activeDestroy;
+                callback.call(receiver, this.scope, this.locationData);
+                this.activeDestroy = undefined;
             }
             if (typeof selected === 'function') {
                 selected(this.scope, this.locationData);
@@ -322,9 +325,14 @@ class Router {
             } else {
                 selected.view!.initialize!(this.scope, this.locationData);
             }
+            const selectedView = typeof selected !== 'function' && typeof selected.view === 'object'
+                ? selected.view
+                : undefined;
+            this.activeDestroy = selectedView?.destroy
+                ? {receiver: selectedView, callback: selectedView.destroy}
+                : undefined;
             this.applyPageContext(selected);
             this.previousRoute = this.route;
-            this.activeRoute = selected;
         }
         if (!isPopState && this.isBrowserRuntime()) {
             window.history.pushState(this.url, this.pageTitle || '', parsedUrl.href);

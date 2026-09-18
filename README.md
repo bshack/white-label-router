@@ -145,7 +145,7 @@ router.routes = {
 };
 ```
 
-`secure()` must return exactly `true` to allow navigation. Client guards are interface behavior, not server authorization. Router validates the destination guard and runnable view behavior before tearing down the current route. On a successful route change, the previous route's `destroy()` runs before the next route's `initialize()`.
+`secure()` must return exactly `true` to allow navigation. Client guards are interface behavior, not server authorization. Router validates the destination guard and runnable view behavior before tearing down the current route. On a successful route change, the previous route's `destroy()` runs before the next route's `initialize()`. Router snapshots the destroy callback that belongs to the lifecycle that actually initialized, so later replacement or mutation of the route table does not retarget teardown. The destroy callback receives the incoming location as `nextLocation`. If browser title/focus work throws after a route has initialized, that initialized lifecycle remains owned and is still torn down before a later successful route starts.
 
 ## Matching
 
