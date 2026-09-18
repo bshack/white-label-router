@@ -84,13 +84,13 @@ test('most-specific matching is independent of route declaration order and inher
     router.routes = Object.assign(Object.create({'/inherited': () => inheritedCalls.push('inherited')}), {
         '/owned': () => inheritedCalls.push('owned')
     });
-    router.navigate('/inherited');
-    assert.equal(router.route, null);
+    assert.equal(router.navigate('/inherited'), false);
+    assert.equal(router.route, '/products/special');
     assert.deepEqual(inheritedCalls, []);
 
     router.routes = Object.create({defaultRoute: () => inheritedCalls.push('default')});
-    router.navigate('/missing');
-    assert.equal(router.route, null);
+    assert.equal(router.navigate('/missing'), false);
+    assert.equal(router.route, '/products/special');
     assert.deepEqual(inheritedCalls, []);
 });
 test('browser navigation uses one same-origin URL interpretation for matching, location data, and history', t => {
@@ -111,14 +111,11 @@ test('browser navigation uses one same-origin URL interpretation for matching, l
     assert.equal(router.url, '/page?q=1#details');
     assert.equal(router.route, '/page');
 
-    assert.equal(router.navigate('https://example.test//outside.test/sensitive'), router);
-    assert.equal(router.url, '//outside.test/sensitive');
-    assert.equal(router.route, null);
+    assert.equal(router.navigate('https://example.test//outside.test/sensitive'), false);
+    assert.equal(router.url, '/page?q=1#details');
+    assert.equal(router.route, '/page');
     assert.equal(sensitiveCalls, 0);
-    assert.deepEqual(history.at(-1), ['//outside.test/sensitive', '', 'https://example.test//outside.test/sensitive']);
-    router.setLocationData();
-    assert.equal(router.locationData.url, '//outside.test/sensitive');
-    assert.deepEqual(router.locationData.data.url, ['outside.test', 'sensitive']);
+    assert.equal(history.length, previousHistoryLength);
 
     assert.equal(router.normalizeBrowserUrl('http://['), null);
 });
@@ -134,6 +131,10 @@ test('invalid navigation input and mediator payloads reject without changing Rou
         assert.equal(router.route, '/allowed');
         assert.equal(router.locationData, previousLocationData);
     }
+    assert.equal(router.navigate('/unmatched'), false);
+    assert.equal(router.url, '/allowed');
+    assert.equal(router.route, '/allowed');
+    assert.equal(router.locationData, previousLocationData);
     assert.equal(router.navigate(42), false);
     assert.equal(router.normalizeBrowserUrl('/server'), '/server');
 
@@ -251,4 +252,23 @@ test('click handling preserves browser actions, document base URLs, and text-nod
     const malformedAnchor = {href: 'http://[', getAttribute: name => name === 'href' ? 'http://[' : null, hasAttribute: () => false};
     assert.doesNotThrow(() => router.eventPushStateClick(event({target: {closest: () => malformedAnchor}})));
     assert.equal(navigations, 2);
+
+    const nativeRouter = new Router();
+    nativeRouter.routes = {'/handled': () => true};
+    let unmatchedPrevented = false;
+    const unmatched = anchor({href: '/unmatched'});
+    assert.equal(nativeRouter.eventPushStateClick(event({
+        target: {closest: () => unmatched},
+        preventDefault() {unmatchedPrevented = true;}
+    })), true);
+    assert.equal(unmatchedPrevented, false);
+
+    let handledPrevented = false;
+    const handled = anchor({href: '/handled'});
+    nativeRouter.eventPushStateClick(event({
+        target: {closest: () => handled},
+        preventDefault() {handledPrevented = true;}
+    }));
+    assert.equal(handledPrevented, true);
+    assert.equal(nativeRouter.route, '/handled');
 });
