@@ -62,7 +62,9 @@ test('route guards, titles, function handlers and lifecycle teardown retain orde
     assert.equal(router.previousRoute, '/object');
     assert.equal(router.route, '/object');
     assert.equal(router.url, '/object');
-    assert.equal(router.navigate('/unknown'), router);
+    assert.equal(router.navigate('/unknown'), false);
+    assert.equal(router.route, '/object');
+    assert.equal(router.url, '/object');
     router.navigate('/object/%E0%A4%A');
     assert.deepEqual(router.locationData.data.url, ['%E0%A4%A']);
     router.previousRoute = '/empty';
@@ -253,6 +255,7 @@ test('click handling preserves browser actions, document base URLs, and text-nod
     assert.doesNotThrow(() => router.eventPushStateClick(event({target: {closest: () => malformedAnchor}})));
     assert.equal(navigations, 2);
 
+    document.baseURI = 'https://example.test/';
     const nativeRouter = new Router();
     nativeRouter.routes = {'/handled': () => true};
     let unmatchedPrevented = false;
