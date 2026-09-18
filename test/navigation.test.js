@@ -68,6 +68,36 @@ test('route guards, titles, function handlers and lifecycle teardown retain orde
     router.previousRoute = '/empty';
     router.navigate('/object');
 });
+
+test('route-table replacement does not orphan the lifecycle that is already active', t => {
+    browser(t);
+    const router = new Router();
+    const calls = [];
+    const activeView = {
+        initialize: () => calls.push('old:init'),
+        destroy: () => calls.push('old:destroy')
+    };
+
+    router.routes = {
+        '/page': {view: activeView},
+        '/next': () => calls.push('next')
+    };
+    router.navigate('/page');
+
+    router.routes = {
+        '/page': {
+            view: {
+                initialize: () => calls.push('new:init'),
+                destroy: () => calls.push('new:destroy')
+            }
+        },
+        '/next': () => calls.push('next')
+    };
+    router.navigate('/next');
+
+    assert.deepEqual(calls, ['old:init', 'old:destroy', 'next']);
+});
+
 test('most-specific matching is independent of route declaration order and inherited properties', () => {
     const router = new Router();
     const calls = [];
