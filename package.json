@@ -89,9 +89,7 @@
     "branches": 100,
     "statements": 100,
     "perFile": true,
-    "exclude": [
-      "**/*.d.ts"
-    ]
+    "exclude": ["**/*.d.ts"]
   },
   "exports": {
     ".": {
