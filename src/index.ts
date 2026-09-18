@@ -28,6 +28,7 @@ class Router {
     private boundMediator: NavigationMediator | false = false;
     private currentNavigationRoot: Document | Element | null = null;
     private boundNavigationRoot: Document | Element | null = null;
+    private activeRoute: Route | undefined;
 
     /** Create an instance with its own state and listener references. */
     constructor() {
@@ -299,7 +300,7 @@ class Router {
         this.route = candidateRoute;
         this.locationData = candidateLocationData;
         if (selected) {
-            const previous = this.previousRoute ? this.routes[this.previousRoute] : undefined;
+            const previous = this.activeRoute;
             if (previous && typeof previous !== 'function' && typeof previous.view === 'object' && previous.view.destroy) {
                 previous.view.destroy(this.scope, this.locationData);
             }
@@ -312,6 +313,7 @@ class Router {
             }
             this.applyPageContext(selected);
             this.previousRoute = this.route;
+            this.activeRoute = selected;
         }
         if (!isPopState && this.isBrowserRuntime()) {
             window.history.pushState(this.url, this.pageTitle || '', parsedUrl.href);
