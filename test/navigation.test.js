@@ -247,4 +247,8 @@ test('click handling preserves browser actions, document base URLs, and text-nod
     router.eventPushStateClick(event({target: {closest: () => basedAnchor}, preventDefault() {prevented = true;}}));
     assert.equal(prevented, false);
     assert.equal(navigations, 2);
+
+    const malformedAnchor = {href: 'http://[', getAttribute: () => 'http://[', hasAttribute: () => false};
+    assert.doesNotThrow(() => router.eventPushStateClick(event({target: {closest: () => malformedAnchor}})));
+    assert.equal(navigations, 2);
 });
