@@ -79,6 +79,7 @@ test('delegated navigation resolves a nested target to its push-state anchor', f
     const Router = require('../dist/index');
     const router = new Router();
     installGlobals(t, {window: {location: {href: 'https://example.test/', origin: 'https://example.test'}}});
+    router.routes = {'/products': () => true};
     const anchor = {
         getAttribute(name) {
             return name === 'href' ? '/products' : null;

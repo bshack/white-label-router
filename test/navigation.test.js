@@ -348,6 +348,8 @@ test('page context updates title and focuses the configured target', t => {
 test('click handling preserves browser actions, document base URLs, and text-node targets', t => {
     browser(t);
     const router = new Router();
+    // An application-configured default route opts unmatched links into enhancement; the built-in one does not.
+    router.routes = {defaultRoute: () => true};
     let navigations = 0;
     router.navigate = url => {navigations++; router.url = url; return router;};
     let nativePrevented = false;

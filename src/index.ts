@@ -13,6 +13,27 @@ interface NavigationMediator {
     addEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
     removeEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
 }
+/** Route keys compiled for prefix lookup; rebuilt only when the own key list changes. */
+interface CompiledRoutes {keys: string[]; prefixes: Map<string, string>; prefixFor: Map<string, string>}
+
+/** Placeholder default routes created by the constructor rather than configured by the application. */
+const builtInDefaultRoutes = new WeakSet<object>();
+/** Fixed origin used to put route keys through the same WHATWG path normalization as navigation URLs. */
+const routeKeyBase = 'http://white-label.invalid';
+
+/** Encode a path-like route key the way URL parsing encodes pathnames, so '/café' matches '/caf%C3%A9'. */
+function normalizeRouteKey(key: string) {
+    // Keys that are not absolute paths, or that carry query/hash syntax, can never be a pathname; keep them inert.
+    if (!key.startsWith('/') || /[?#]/.test(key)) {return key;}
+    return new URL(`${routeKeyBase}${key}`).pathname;
+}
+
+/** Path and query without the fragment. */
+function withoutHash(url: string) {
+    const index = url.indexOf('#');
+    return index === -1 ? url : url.slice(0, index);
+}
+
 /** History API router that also dispatches request URLs in non-browser runtimes. */
 class Router {
     routes: Record<string, Route>;
@@ -31,17 +52,22 @@ class Router {
     private currentNavigationRoot: Document | Element | null = null;
     private boundNavigationRoot: Document | Element | null = null;
     private activeDestroy: ActiveDestroy | undefined;
+    private compiledRoutes: CompiledRoutes | undefined;
+    // Incremented by every committed navigation so a superseded (re-entered) navigation stops committing.
+    private navigationToken = 0;
+    private initialDispatch = false;
+    private suppressFocus = false;
 
     /** Create an instance with its own state and listener references. */
     constructor() {
-        this.routes = {
-            defaultRoute: {
-                view: {
-                    initialize: () => true,
-                    destroy: () => true
-                }
+        const defaultRoute: RouteObject = {
+            view: {
+                initialize: () => true,
+                destroy: () => true
             }
         };
+        builtInDefaultRoutes.add(defaultRoute);
+        this.routes = {defaultRoute};
         this.url = '';
         this.route = null;
         this.scope = null;
@@ -133,28 +159,67 @@ class Router {
         return typeof route === 'function' || typeof route.view === 'function' ||
             Boolean(route.view && typeof route.view.initialize === 'function');
     }
-    /** Return the longest matching own route-table prefix, falling back to defaultRoute when configured. */
-    private matchRoute(pathname: string): string | null {
-        let candidateRoute: string | null = null;
-        for (const route of Object.keys(this.routes)) {
-            if (route === 'defaultRoute' || (pathname !== route && !pathname.startsWith(`${route}/`))) {continue;}
-            if (!candidateRoute || route.length > candidateRoute.length) {candidateRoute = route;}
+    /** Compile own route keys into a prefix map, reusing the previous compilation while the key list is unchanged. */
+    private compileRoutes(): CompiledRoutes {
+        const keys = Object.keys(this.routes);
+        const cached = this.compiledRoutes;
+        if (cached && cached.keys.length === keys.length && cached.keys.every((key, index) => key === keys[index])) {
+            return cached;
         }
-        if (!candidateRoute && Object.prototype.hasOwnProperty.call(this.routes, 'defaultRoute') && this.routes.defaultRoute) {
-            return 'defaultRoute';
+        const prefixes = new Map<string, string>();
+        const prefixFor = new Map<string, string>();
+        for (const key of keys) {
+            if (key === 'defaultRoute') {continue;}
+            const prefix = normalizeRouteKey(key);
+            prefixFor.set(key, prefix);
+            const existing = prefixes.get(prefix);
+            // Equivalent spellings resolve independently of insertion order: the canonical spelling, then the lowest key.
+            if (existing === undefined || (existing !== prefix && (key === prefix || key < existing))) {prefixes.set(prefix, key);}
         }
-        return candidateRoute;
+        this.compiledRoutes = {keys, prefixes, prefixFor};
+        return this.compiledRoutes;
     }
 
+    /** Return the longest matching own route-table prefix, falling back to defaultRoute when configured. */
+    private matchRoute(pathname: string): string | null {
+        const {prefixes} = this.compileRoutes();
+        // Walk complete path boundaries from longest to shortest, so the first hit is the longest match.
+        let candidateRoute = prefixes.get(pathname);
+        let index = pathname.lastIndexOf('/');
+        while (candidateRoute === undefined && index >= 0) {
+            candidateRoute = prefixes.get(pathname.slice(0, index));
+            index = index > 0 ? pathname.lastIndexOf('/', index - 1) : -1;
+        }
+        if (candidateRoute !== undefined) {return candidateRoute;}
+        if (Object.prototype.hasOwnProperty.call(this.routes, 'defaultRoute') && this.routes.defaultRoute) {
+            return 'defaultRoute';
+        }
+        return null;
+    }
+
+    /** Matched pathname prefix length for a route key, as compiled for matching. */
+    private routePrefixLength(route: string | null) {
+        if (!route || route === 'defaultRoute') {return 0;}
+        return (this.compileRoutes().prefixFor.get(route) ?? normalizeRouteKey(route)).length;
+    }
+
+    /** Parse Router's own committed path without letting a leading '//' turn into an authority. */
+    private parseStoredUrl(url: string) {
+        if (!url.startsWith('/')) {return this.parseNavigationUrl(url);}
+        try {
+            return new URL(`${this.getOrigin()}${url}`);
+        } catch (_error) {
+            return null;
+        }
+    }
 
     /** Build decoded path, query, and mediator data for a navigation candidate. */
     private buildLocationData(url: string, route: string | null, mediatorData: NavigationData | undefined, parsedUrl: URL): LocationData {
-        const matchedRoute = route && route !== 'defaultRoute' ? route : '';
         return {
             url,
             data: {
                 url: parsedUrl.pathname
-                    .slice(matchedRoute.length)
+                    .slice(this.routePrefixLength(route))
                     .split('/')
                     .filter(Boolean)
                     .map((fragment) => {
@@ -172,7 +237,13 @@ class Router {
      */
     initialize(url?: string) {
         this.addListeners();
-        this.navigate(url ?? this.getCurrentUrl(), {}, true);
+        // The browser already owns focus for the document it just loaded; only later route changes move it.
+        this.initialDispatch = true;
+        try {
+            this.navigate(url ?? this.getCurrentUrl(), {}, true);
+        } finally {
+            this.initialDispatch = false;
+        }
         return this;
     }
 
@@ -227,7 +298,8 @@ class Router {
         if (!anchor) {return true;}
         const target = anchor.getAttribute('target');
         if (anchor.hasAttribute('download') || (target && target.toLowerCase() !== '_self')) {return true;}
-        const href = (anchor as HTMLAnchorElement).href || anchor.getAttribute('href') || '';
+        // The attribute, not the property: SVG <a>.href is an SVGAnimatedString rather than a URL string.
+        const href = anchor.getAttribute('href') ?? '';
         const baseUrl = typeof document !== 'undefined' && document.baseURI
             ? document.baseURI
             : window.location.href || `${window.location.origin}/`;
@@ -236,16 +308,30 @@ class Router {
         if (location.origin !== window.location.origin) {return true;}
         const candidateRoute = this.matchRoute(location.pathname);
         const selected = candidateRoute ? this.routes[candidateRoute] : undefined;
-        if (!selected || !this.isRunnableRoute(selected)) {return true;}
-        e.preventDefault();
-        this.navigate(`${location.pathname}${location.search}${location.hash}`, {}, false);
-        return this;
+        if (!selected || !this.isRunnableRoute(selected) || builtInDefaultRoutes.has(selected)) {return true;}
+        // Guards are synchronous, so navigate first and cancel the native action only when Router took the link;
+        // a guard-rejected link then still navigates natively.
+        const token = this.navigationToken;
+        let handled = false;
+        try {
+            handled = this.navigate(`${location.pathname}${location.search}${location.hash}`, {}, false) !== false;
+        } finally {
+            if (handled || this.navigationToken !== token) {e.preventDefault();}
+        }
+        return handled ? this : true;
     }
 
     /** Restore browser history state without adding a new history entry. */
     eventPopState() {
         if (typeof window === 'undefined') {return this;}
-        this.navigate(this.getCurrentUrl(), {}, true);
+        const currentUrl = this.getCurrentUrl();
+        // Same-document fragment navigation (footnotes, skip links) keeps the active route, its view, and focus.
+        if (this.route !== null && withoutHash(currentUrl) === withoutHash(this.url)) {
+            this.url = currentUrl;
+            this.locationData = {...this.locationData, url: currentUrl};
+            return this;
+        }
+        this.navigate(currentUrl, {}, true);
         return this;
     }
 
@@ -256,14 +342,8 @@ class Router {
 
     /** Build decoded path, query, and mediator data for the selected route. */
     setLocationData(mediatorData?: NavigationData) {
-        const url = this.url || '/';
-        let parsedUrl: URL;
-        try {
-            const value = this.isBrowserRuntime() ? `${window.location.origin}${url}` : url;
-            parsedUrl = new URL(value, this.getOrigin());
-        } catch (_error) {
-            return;
-        }
+        const parsedUrl = this.parseStoredUrl(this.url || '/');
+        if (!parsedUrl) {return;}
         this.locationData = this.buildLocationData(this.url, this.route, mediatorData, parsedUrl);
     }
 
@@ -276,7 +356,7 @@ class Router {
         this.pageTitle = typeof route.title === 'string' ? route.title : null;
         if (!this.isBrowserRuntime()) {return this;}
         if (this.pageTitle) {document.title = this.pageTitle;}
-        if (route.focus !== false) {
+        if (route.focus !== false && !this.suppressFocus) {
             const target = document.querySelector<HTMLElement>(route.focus || 'main h1');
             if (target) {
                 if (!target.hasAttribute('tabindex')) {target.setAttribute('tabindex', '-1');}
@@ -288,17 +368,22 @@ class Router {
 
     /** Select a route, enforce its guard, transition view lifecycles, and update browser history when available. */
     navigate(url?: string, mediatorData?: NavigationData, isPopState = false) {
+        const skipFocus = this.initialDispatch;
+        this.initialDispatch = false;
         if (url !== undefined && typeof url !== 'string') {return false;}
 
-        let candidateInput = url !== undefined ? url : this.url;
-        if (!candidateInput) {candidateInput = this.getCurrentUrl();}
-        const parsedUrl = this.parseNavigationUrl(candidateInput);
+        const candidateInput = url !== undefined ? url : this.url;
+        let parsedUrl: URL | null;
+        if (!candidateInput) {
+            parsedUrl = this.parseNavigationUrl(this.getCurrentUrl());
+        } else {
+            parsedUrl = url === undefined ? this.parseStoredUrl(candidateInput) : this.parseNavigationUrl(candidateInput);
+        }
         if (!parsedUrl) {return false;}
         if (this.isBrowserRuntime() && parsedUrl.origin !== window.location.origin) {return false;}
 
-        const candidateUrl = this.isBrowserRuntime()
-            ? `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
-            : candidateInput;
+        // Both runtimes commit the documented path + query (+ hash) form, never a full absolute URL.
+        const candidateUrl = `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
         const candidateRoute = this.matchRoute(parsedUrl.pathname);
         if (!candidateRoute) {return false;}
 
@@ -309,31 +394,41 @@ class Router {
             return false;
         }
 
+        const token = ++this.navigationToken;
         this.url = candidateUrl;
         this.route = candidateRoute;
         this.locationData = candidateLocationData;
-        if (selected) {
-            if (this.activeDestroy) {
-                const {receiver, callback} = this.activeDestroy;
-                callback.call(receiver, this.scope, this.locationData);
-                this.activeDestroy = undefined;
-            }
-            if (typeof selected === 'function') {
-                selected(this.scope, this.locationData);
-            } else if (typeof selected.view === 'function') {
-                selected.view(this.scope, this.locationData);
-            } else {
-                selected.view!.initialize!(this.scope, this.locationData);
-            }
-            const selectedView = typeof selected !== 'function' && typeof selected.view === 'object'
-                ? selected.view
-                : undefined;
-            this.activeDestroy = selectedView?.destroy
-                ? {receiver: selectedView, callback: selectedView.destroy}
-                : undefined;
-            this.applyPageContext(selected);
-            this.previousRoute = this.route;
+        // Release ownership before calling out, so a navigation started inside destroy() cannot run it twice.
+        const previous = this.activeDestroy;
+        this.activeDestroy = undefined;
+        if (previous) {
+            previous.callback.call(previous.receiver, this.scope, candidateLocationData);
+            if (token !== this.navigationToken) {return this;}
         }
+        const selectedView = typeof selected !== 'function' && typeof selected.view === 'object'
+            ? selected.view
+            : undefined;
+        // Own the lifecycle before initialize() runs: a nested navigation or a throwing initialize() still tears it down.
+        this.activeDestroy = selectedView?.destroy
+            ? {receiver: selectedView, callback: selectedView.destroy}
+            : undefined;
+        if (typeof selected === 'function') {
+            selected(this.scope, candidateLocationData);
+        } else if (typeof selected.view === 'function') {
+            selected.view(this.scope, candidateLocationData);
+        } else {
+            selectedView!.initialize!(this.scope, candidateLocationData);
+        }
+        // A navigation started during initialize() has already committed its own title, focus, and history.
+        if (token !== this.navigationToken) {return this;}
+        this.suppressFocus = skipFocus;
+        try {
+            this.applyPageContext(selected);
+        } finally {
+            this.suppressFocus = false;
+        }
+        if (token !== this.navigationToken) {return this;}
+        this.previousRoute = this.route;
         if (!isPopState && this.isBrowserRuntime()) {
             window.history.pushState(this.url, this.pageTitle || '', parsedUrl.href);
         }
