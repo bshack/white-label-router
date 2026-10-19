@@ -14,6 +14,7 @@ test('default route initializes, reinitializes, and handles browser back without
     const router = new Router();
     router.removeListeners();
     assert.equal(router.initialize(), router);
+    assert.equal(history.length, 0);
     assert.equal(router.navigate('/next'), router);
     window.location.pathname = '/previous';
     assert.equal(router.eventPopState({state: '/ignored'}), router);
@@ -29,16 +30,22 @@ test('default route initializes, reinitializes, and handles browser back without
     router.mediator = {addEventListener() {}, removeEventListener() {}};
     router.addListeners(); router.removeListeners();
     router.boundMediatorNavigate(new Event('router:navigate'));
+    assert.equal(router.url, '/previous?q=1#section');
     router.boundMediatorNavigate(new CustomEvent('router:navigate', {detail: null}));
-    router.boundMediatorNavigate(new CustomEvent('router:navigate', {detail: {url: '/mediator'}}));
+    assert.equal(router.url, '/previous?q=1#section');
+    assert.deepEqual(router.locationData.data.mediator, {});
+    const detail = {url: '/mediator', reason: 'Session refreshed'};
+    router.boundMediatorNavigate(new CustomEvent('router:navigate', {detail}));
     assert.equal(router.url, '/mediator');
+    assert.equal(router.locationData.data.mediator, detail);
 });
 test('route guards, titles, function handlers and lifecycle teardown retain ordering', t => {
-    browser(t);
+    const history = browser(t);
     const router = new Router();
     const calls = [];
     router.routes = {
         '/private': {secure: () => false, view: () => calls.push('forbidden')},
+        '/truthy': {secure: () => 'yes', view: () => calls.push('truthy')},
         '/page': {secure: () => true, title: 'Page', view: {initialize: () => calls.push('init'), destroy: () => calls.push('destroy')}},
         '/function': {title: 'Function', view: () => calls.push('function')},
         '/untitled': {view: () => calls.push('untitled')},
@@ -47,8 +54,11 @@ test('route guards, titles, function handlers and lifecycle teardown retain orde
         '/missing': {}
     };
     assert.equal(router.navigate('/private'), false);
+    assert.equal(router.navigate('/truthy'), false);
+    assert.equal(history.length, 0);
     router.navigate('/page');
     assert.equal(document.title, 'Page');
+    assert.deepEqual(history.at(-1), ['/page', 'Page', 'https://example.test/page']);
     router.navigate('/function');
     assert.deepEqual(calls, ['init', 'destroy', 'function']);
     assert.equal(document.title, 'Function');
@@ -68,7 +78,8 @@ test('route guards, titles, function handlers and lifecycle teardown retain orde
     router.navigate('/object/%E0%A4%A');
     assert.deepEqual(router.locationData.data.url, ['%E0%A4%A']);
     router.previousRoute = '/empty';
-    router.navigate('/object');
+    assert.equal(router.navigate('/object'), router);
+    assert.equal(router.previousRoute, '/object');
 });
 test('route-table replacement does not orphan the lifecycle that is already active', t => {
     browser(t);
@@ -165,6 +176,16 @@ test('most-specific matching is independent of route declaration order and inher
     router.navigate('/products/special/42');
     assert.equal(router.route, '/products/special');
     assert.deepEqual(calls, [['special', ['42']]]);
+
+    router.routes = {
+        '/products/special': (_scope, location) => calls.push(['special', location.data.url]),
+        '/products': (_scope, location) => calls.push(['products', location.data.url])
+    };
+    router.navigate('/products/44');
+    assert.equal(router.route, '/products');
+    router.navigate('/products/special/43');
+    assert.equal(router.route, '/products/special');
+    assert.deepEqual(calls.slice(1), [['products', ['44']], ['special', ['43']]]);
 
     const inheritedCalls = [];
     router.routes = Object.assign(Object.create({'/inherited': () => inheritedCalls.push('inherited')}), {
@@ -306,8 +327,21 @@ test('page context updates title and focuses the configured target', t => {
     assert.equal(target.tabindex, '-1');
     assert.equal(target.focused, true);
     target.hasAttribute = () => true;
+    target.tabindex = '0';
+    target.focused = false;
     router.applyPageContext({focus: '#title', view() {}});
+    assert.equal(target.tabindex, '0');
+    assert.equal(target.focused, true);
+    const queried = [];
+    document.querySelector = selector => {queried.push(selector); return selector === 'main h1' ? target : null;};
+    target.focused = false;
+    router.applyPageContext({view() {}});
+    assert.deepEqual(queried, ['main h1']);
+    assert.equal(target.focused, true);
+    target.focused = false;
     router.applyPageContext({focus: false, view() {}});
+    assert.deepEqual(queried, ['main h1']);
+    assert.equal(target.focused, false);
     router.applyPageContext(() => {});
     assert.equal(router.pageTitle, null);
 });
@@ -316,32 +350,44 @@ test('click handling preserves browser actions, document base URLs, and text-nod
     const router = new Router();
     let navigations = 0;
     router.navigate = url => {navigations++; router.url = url; return router;};
-    const event = overrides => ({button: 0, preventDefault() {}, ...overrides});
-    for (const overrides of [{defaultPrevented: true}, {button: 1}, {metaKey: true}, {shiftKey: true}, {altKey: true}, {target: null}, {target: {}}, {target: {closest: () => null}}]) {
+    let nativePrevented = false;
+    const event = overrides => ({button: 0, preventDefault() {nativePrevented = true;}, ...overrides});
+    const anchor = (attrs) => ({getAttribute: name => attrs[name], hasAttribute: name => name in attrs});
+    // Only the opted-in anchor selector may be delegated; any other selector finds nothing.
+    const pushStateTarget = found => ({closest: selector => selector === 'a[href][data-pushstate]' ? found : null});
+    const eligible = pushStateTarget(anchor({href: '/eligible'}));
+    // Every native-behaviour case carries an otherwise eligible same-origin link, so each check is load-bearing.
+    for (const overrides of [{defaultPrevented: true}, {button: 1}, {button: 2}, {metaKey: true}, {ctrlKey: true}, {shiftKey: true}, {altKey: true}]) {
+        assert.equal(router.eventPushStateClick(event({target: eligible, ...overrides})), true, JSON.stringify(overrides));
+    }
+    for (const overrides of [{target: null}, {target: {}}, {target: {closest: () => null}}]) {
         assert.equal(router.eventPushStateClick(event(overrides)), true);
     }
-    const anchor = (attrs) => ({getAttribute: name => attrs[name], hasAttribute: name => name in attrs});
     for (const attrs of [{href: '/', download: ''}, {href: '/', target: '_blank'}]) {
-        assert.equal(router.eventPushStateClick(event({target: {closest: () => anchor(attrs)}})), true);
+        assert.equal(router.eventPushStateClick(event({target: pushStateTarget(anchor(attrs))})), true);
     }
     assert.equal(navigations, 0);
-    router.eventPushStateClick(event({target: {parentElement: {closest: () => anchor({href: '/nested', target: '_self'})}}}));
+    assert.equal(nativePrevented, false);
+    router.eventPushStateClick(event({target: {parentElement: pushStateTarget(anchor({href: '/nested', target: '_self'}))}}));
     assert.equal(router.url, '/nested');
+    assert.equal(nativePrevented, true);
+    router.eventPushStateClick(event({target: pushStateTarget(anchor({href: '/same-frame', target: '_SELF'}))}));
+    assert.equal(router.url, '/same-frame');
     window.location.href = '';
-    router.eventPushStateClick(event({target: {closest: () => anchor({})}}));
+    router.eventPushStateClick(event({target: pushStateTarget(anchor({}))}));
     assert.equal(router.url, '/');
-    assert.equal(navigations, 2);
+    assert.equal(navigations, 3);
 
     document.baseURI = 'https://outside.test/';
     let prevented = false;
     const basedAnchor = {href: 'https://outside.test/sensitive', getAttribute: name => name === 'href' ? '/sensitive' : null, hasAttribute: () => false};
     router.eventPushStateClick(event({target: {closest: () => basedAnchor}, preventDefault() {prevented = true;}}));
     assert.equal(prevented, false);
-    assert.equal(navigations, 2);
+    assert.equal(navigations, 3);
 
     const malformedAnchor = {href: 'http://[', getAttribute: name => name === 'href' ? 'http://[' : null, hasAttribute: () => false};
     assert.doesNotThrow(() => router.eventPushStateClick(event({target: {closest: () => malformedAnchor}})));
-    assert.equal(navigations, 2);
+    assert.equal(navigations, 3);
 
     document.baseURI = 'https://example.test/';
     const nativeRouter = new Router();

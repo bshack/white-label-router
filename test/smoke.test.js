@@ -3,6 +3,12 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
+// Restore browser globals even when an assertion fails, so later tests in this file start DOM-free.
+function installGlobals(t, globals) {
+    for (const [name, value] of Object.entries(globals)) {global[name] = value;}
+    t.after(() => {for (const name of Object.keys(globals)) {delete global[name];}});
+}
+
 test('exports the Router constructor', function() {
     const Router = require('../dist/index');
     const router = new Router();
@@ -10,45 +16,49 @@ test('exports the Router constructor', function() {
     assert.equal(router.constructor, Router);
 });
 
-test('listener cleanup uses the exact functions registered during initialization', function() {
+test('listener cleanup uses the exact functions registered during initialization', function(t) {
     const Router = require('../dist/index');
     const router = new Router();
     const added = new Map();
     const removed = new Map();
-    global.document = {
-        addEventListener(type, handler) {added.set(type, handler);},
-        removeEventListener(type, handler) {removed.set(type, handler);}
-    };
-    global.window = {
-        location: {origin: 'https://example.test', pathname: '/', search: '', hash: ''},
-        addEventListener(type, handler) {added.set(type, handler);},
-        removeEventListener(type, handler) {removed.set(type, handler);}
-    };
+    installGlobals(t, {
+        document: {
+            addEventListener(type, handler) {added.set(type, handler);},
+            removeEventListener(type, handler) {removed.set(type, handler);}
+        },
+        window: {
+            location: {origin: 'https://example.test', pathname: '/', search: '', hash: ''},
+            addEventListener(type, handler) {added.set(type, handler);},
+            removeEventListener(type, handler) {removed.set(type, handler);}
+        }
+    });
 
     router.addListeners();
+    assert.equal(typeof added.get('click'), 'function');
+    assert.equal(typeof added.get('popstate'), 'function');
     router.removeListeners();
 
     assert.equal(removed.get('click'), added.get('click'));
     assert.equal(removed.get('popstate'), added.get('popstate'));
-    delete global.document;
-    delete global.window;
 });
 
-test('destroy removes the mediator listener and repeated initialization does not duplicate it', function() {
+test('destroy removes the mediator listener and repeated initialization does not duplicate it', function(t) {
     const Router = require('../dist/index');
     const router = new Router();
     const mediator = new EventTarget();
     let navigations = 0;
-    global.document = {
-        addEventListener() {},
-        removeEventListener() {}
-    };
-    global.window = {
-        location: {href: 'https://example.test/', origin: 'https://example.test', pathname: '/', search: '', hash: ''},
-        history: {pushState() {}},
-        addEventListener() {},
-        removeEventListener() {}
-    };
+    installGlobals(t, {
+        document: {
+            addEventListener() {},
+            removeEventListener() {}
+        },
+        window: {
+            location: {href: 'https://example.test/', origin: 'https://example.test', pathname: '/', search: '', hash: ''},
+            history: {pushState() {}},
+            addEventListener() {},
+            removeEventListener() {}
+        }
+    });
     router.mediator = mediator;
     router.navigate = function() {
         navigations += 1;
@@ -63,14 +73,12 @@ test('destroy removes the mediator listener and repeated initialization does not
     router.destroy();
     mediator.dispatchEvent(new CustomEvent('router:navigate', {detail: {url: '/ignored'}}));
     assert.equal(navigations, 1);
-    delete global.document;
-    delete global.window;
 });
 
-test('delegated navigation resolves a nested target to its push-state anchor', function() {
+test('delegated navigation resolves a nested target to its push-state anchor', function(t) {
     const Router = require('../dist/index');
     const router = new Router();
-    global.window = {location: {href: 'https://example.test/', origin: 'https://example.test'}};
+    installGlobals(t, {window: {location: {href: 'https://example.test/', origin: 'https://example.test'}}});
     const anchor = {
         getAttribute(name) {
             return name === 'href' ? '/products' : null;
@@ -88,17 +96,16 @@ test('delegated navigation resolves a nested target to its push-state anchor', f
         preventDefault() {
             prevented = true;
         },
-        target: {closest: () => anchor}
+        target: {closest: selector => selector === 'a[href][data-pushstate]' ? anchor : null}
     });
 
     assert.equal(navigatedUrl, '/products');
     assert.equal(prevented, true);
-    delete global.window;
 });
 
-test('delegated navigation leaves modified and external links to the browser', function() {
+test('delegated navigation leaves modified and external links to the browser', function(t) {
     const Router = require('../dist/index');
-    global.window = {location: {href: 'https://example.test/', origin: 'https://example.test'}};
+    installGlobals(t, {window: {location: {href: 'https://example.test/', origin: 'https://example.test'}}});
     const router = new Router();
     const anchor = {
         getAttribute(name) {
@@ -121,7 +128,6 @@ test('delegated navigation leaves modified and external links to the browser', f
     }), true);
     assert.equal(prevented, false);
     assert.equal(navigated, false);
-    delete global.window;
 });
 
 test('route matching respects path boundaries and decodes location data', function() {

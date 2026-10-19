@@ -79,12 +79,12 @@ test('browser and server runtimes expose the same route contract', () => {
     const url = '/products/42?allow=yes&color=blue#details';
 
     const restoreBrowser = installBrowserGlobals();
-    const browserResult = runContract(undefined);
-    restoreBrowser();
+    let browserResult;
+    try {browserResult = runContract(undefined);} finally {restoreBrowser();}
 
     const restoreServer = removeBrowserGlobals();
-    const serverResult = runContract(url);
-    restoreServer();
+    let serverResult;
+    try {serverResult = runContract(url);} finally {restoreServer();}
 
     assert.deepEqual(serverResult, browserResult);
     assert.deepEqual(serverResult, {

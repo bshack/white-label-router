@@ -52,7 +52,7 @@ function click(url) {
     };
     return {
         button: 0,
-        target: {closest: () => anchor},
+        target: {closest: selector => selector === 'a[href][data-pushstate]' ? anchor : null},
         preventDefault() {}
     };
 }
@@ -97,5 +97,7 @@ test('navigationRoot can be configured in a non-browser lifecycle', () => {
     router.addListeners();
     router.navigationRoot = configuredRoot;
     assert.equal(router.navigationRoot, configuredRoot);
+    assert.equal(configuredRoot.hasClickListener, false);
     router.removeListeners();
+    assert.equal(configuredRoot.hasClickListener, false);
 });
