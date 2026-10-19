@@ -17,4 +17,4 @@ These instructions are more specific than the repository-root agent guide for fi
 
 ## Verification
 
-Run lint, build/type checks, runtime tests, 100% per-file coverage, audit, packed-package, npm/Yarn/pnpm, and minimum-Node checks. Do not weaken atomic-navigation, scoped-navigation, or listener-ownership tests to satisfy an implementation change.
+Run the root full gate. A source change is release-ready only once CI's packed-package, npm/Yarn/pnpm, and minimum-Node checks also pass. Never weaken atomic-navigation, scoped-navigation, or listener-ownership tests to accommodate an implementation change.
