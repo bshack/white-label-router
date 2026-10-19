@@ -2,11 +2,15 @@
 
 History API routing with progressive link enhancement, route guards, and view lifecycles.
 
-Verified against `package.json`, `README.md`, and `.github/workflows/security.yml` on September 13, 2026. Recheck those files when commands or supported environments change.
+Verified against `package.json`, `README.md`, and `.github/workflows/security.yml` on October 19, 2026. Recheck those files when commands or supported environments change.
 
 ## Code map
 
-`src/` contains implementation TypeScript (see `src/AGENTS.md`); `test/` holds Node tests; `tsconfig.consumer.json` checks consumer types; `dist/index.js` and `dist/index.d.ts` are the package entry points.
+- `src/index.ts`: the whole implementation, one `Router` class plus the `Router.*` type namespace (contracts in `src/AGENTS.md`).
+- `test/*.test.js`: Node tests against built `dist/`. `navigation*.test.js` covers browser behavior with stubbed globals, `server*.test.js` the DOM-free path, `regressions.test.js` re-entrancy, click fallback, popstate, focus, and key-encoding fixes, `runtime-parity`, `package-exports`, and `smoke` the shared contract and entry points.
+- `test-types/consumer.mts` + `tsconfig.consumer.json`: consumer type checks.
+- `dist/index.js` and `dist/index.d.ts`: package entry points (tracked, generated).
+- `docs/runtime-compatibility.md`: browser/server runtime contract.
 
 ## Toolchain
 

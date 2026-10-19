@@ -1,40 +1,56 @@
-/** Navigation payload, including caller-defined metadata. */
+/** Extra data passed with a navigation. `url`, if present, is the destination; any other fields are yours. */
 interface NavigationData {url?: string; [key: string]: unknown}
-/** URL-derived values supplied to route handlers. */
+/**
+ * What a route callback receives about the destination.
+ * `url` is the path, query, and hash; `data.url` holds the decoded path segments after the matched route key;
+ * `data.query` holds decoded query values; `data.mediator` is the navigation data, if any.
+ */
 interface LocationData {url: string; data: {url: string[]; mediator: NavigationData | undefined; query: Record<string, string>}}
+/** A route callback. It receives `router.scope` and the destination location. */
 type RouteHandler = (scope: Element | null, location: LocationData) => unknown;
+/** A view with setup and teardown. `destroy` receives the location being navigated to. */
 interface RouteViewLifecycle {initialize?: RouteHandler; destroy?: RouteHandler}
-/** An object route can own a function or a view lifecycle. */
+/**
+ * A route with optional page context and a guard.
+ * `secure` must return exactly `true` to allow navigation; `focus: false` leaves focus where it is.
+ */
 interface RouteObject {title?: string; focus?: string | false; secure?: RouteHandler; view?: RouteHandler | RouteViewLifecycle}
 type Route = RouteHandler | RouteObject;
+/** The teardown captured from the view that actually initialized, so later route-table edits can't change it. */
 interface ActiveDestroy {receiver: RouteViewLifecycle; callback: RouteHandler}
-/** Minimal standards-based event target contract required by the router. */
+/** Any EventTarget-like object; Router only adds and removes a `router:navigate` listener on it. */
 interface NavigationMediator {
     addEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
     removeEventListener(type: string, callback: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
 }
-/** Route keys compiled for prefix lookup; rebuilt only when the own key list changes. */
+/**
+ * Route keys prepared for fast matching. `prefixes` maps a normalized path to the route key that owns it;
+ * `prefixFor` maps each key to its normalized path. Rebuilt only when the list of own keys changes.
+ */
 interface CompiledRoutes {keys: string[]; prefixes: Map<string, string>; prefixFor: Map<string, string>}
 
-/** Placeholder default routes created by the constructor rather than configured by the application. */
+/** The do-nothing `defaultRoute` objects each constructor installs, so link clicks can tell them apart from app routes. */
 const builtInDefaultRoutes = new WeakSet<object>();
-/** Fixed origin used to put route keys through the same WHATWG path normalization as navigation URLs. */
+/** A dummy origin that lets route keys and server URLs go through the standard URL parser. */
 const routeKeyBase = 'http://white-label.invalid';
 
-/** Encode a path-like route key the way URL parsing encodes pathnames, so '/café' matches '/caf%C3%A9'. */
+/** Encode a route key the way the URL parser encodes paths, so `'/café'` matches `/caf%C3%A9`. */
 function normalizeRouteKey(key: string) {
-    // Keys that are not absolute paths, or that carry query/hash syntax, can never be a pathname; keep them inert.
+    // A key that doesn't start with '/' or contains '?' or '#' can never equal a pathname, so leave it as is (it won't match).
     if (!key.startsWith('/') || /[?#]/.test(key)) {return key;}
     return new URL(`${routeKeyBase}${key}`).pathname;
 }
 
-/** Path and query without the fragment. */
+/** Strip the `#fragment`, leaving the path and query. */
 function withoutHash(url: string) {
     const index = url.indexOf('#');
     return index === -1 ? url : url.slice(0, index);
 }
 
-/** History API router that also dispatches request URLs in non-browser runtimes. */
+/**
+ * Maps URLs to route callbacks. In a browser it enhances `data-pushstate` links and back/forward with the History API;
+ * on a server it dispatches the request URL you pass, with no DOM required.
+ */
 class Router {
     routes: Record<string, Route>;
     url: string;
@@ -53,12 +69,15 @@ class Router {
     private boundNavigationRoot: Document | Element | null = null;
     private activeDestroy: ActiveDestroy | undefined;
     private compiledRoutes: CompiledRoutes | undefined;
-    // Incremented by every committed navigation so a superseded (re-entered) navigation stops committing.
+    // Bumped by each navigation that passes its guard. If it changes while a navigation is calling out to app code,
+    // a newer navigation has started, and the older one stops before touching title, focus, or history.
     private navigationToken = 0;
+    // True only for the first navigate() call made by initialize(), so that dispatch leaves focus alone.
     private initialDispatch = false;
+    // Tells applyPageContext() to skip focus for the current call.
     private suppressFocus = false;
 
-    /** Create an instance with its own state and listener references. */
+    /** Create a router with a placeholder `defaultRoute` and no listeners attached yet. */
     constructor() {
         const defaultRoute: RouteObject = {
             view: {
@@ -88,9 +107,10 @@ class Router {
         this.listenersInitialized = false;
     }
 
+    /** Event target that can send `router:navigate` events, or `false` for none. */
     get mediator(): NavigationMediator | false {return this.currentMediator;}
 
-    /** Move an active router:navigate subscription when the mediator changes. */
+    /** Set the mediator. If listeners are active, the `router:navigate` listener moves from the old one to the new one. */
     set mediator(value: NavigationMediator | false) {
         if (value === this.currentMediator) {return;}
         if (this.listenersInitialized && this.boundMediator) {
@@ -104,9 +124,10 @@ class Router {
         }
     }
 
+    /** Element or document whose `data-pushstate` link clicks this router handles; `null` means the whole document. */
     get navigationRoot(): Document | Element | null {return this.currentNavigationRoot;}
 
-    /** Scope progressive link interception and move an active click listener when the root changes. */
+    /** Set the click root. If listeners are active, the click listener moves to the new root. */
     set navigationRoot(value: Document | Element | null) {
         if (value === this.currentNavigationRoot) {return;}
         if (this.listenersInitialized && this.isBrowserRuntime()) {
@@ -120,23 +141,23 @@ class Router {
         this.currentNavigationRoot = value;
     }
 
-    /** True when browser navigation APIs are available. */
+    /** True when `window` and `document` exist, i.e. browser-only effects should run. */
     private isBrowserRuntime() {
         return typeof window !== 'undefined' && typeof document !== 'undefined';
     }
 
-    /** Stable base URL for WHATWG URL parsing in browser and server runtimes. */
+    /** Origin used as the base for URL parsing: the page's origin in a browser, a dummy one on a server. */
     private getOrigin() {
         return this.isBrowserRuntime() ? window.location.origin : 'http://white-label.invalid';
     }
 
-    /** Read the authoritative browser URL, or retain the supplied server URL. */
+    /** Current path, query, and hash: from `window.location` in a browser, or the last committed URL (default `/`) on a server. */
     private getCurrentUrl() {
         if (!this.isBrowserRuntime()) {return this.url || '/';}
         return window.location.pathname + window.location.search + (window.location.hash || '');
     }
 
-    /** Parse a navigation candidate without changing Router state. */
+    /** Parse a URL relative to the current page (or the dummy server origin). Returns `null` if it can't be parsed. */
     private parseNavigationUrl(url: string) {
         try {
             const base = this.isBrowserRuntime() ? window.location.href || `${window.location.origin}/` : this.getOrigin();
@@ -146,7 +167,7 @@ class Router {
         }
     }
 
-    /** Normalize browser navigation to a same-origin path, query, and hash. */
+    /** In a browser, reduce a URL to its path, query, and hash, or `null` if it is cross-origin or invalid. */
     private normalizeBrowserUrl(url: string) {
         if (!this.isBrowserRuntime()) {return url;}
         const parsedUrl = this.parseNavigationUrl(url);
@@ -154,12 +175,12 @@ class Router {
         return `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
     }
 
-    /** Return whether a selected route has runnable view behavior. */
+    /** True if the route has something to run: a function, a `view` function, or a `view.initialize`. */
     private isRunnableRoute(route: Route): boolean {
         return typeof route === 'function' || typeof route.view === 'function' ||
             Boolean(route.view && typeof route.view.initialize === 'function');
     }
-    /** Compile own route keys into a prefix map, reusing the previous compilation while the key list is unchanged. */
+    /** Build (or reuse) the lookup tables for the current route keys. Reused while the own key list is unchanged. */
     private compileRoutes(): CompiledRoutes {
         const keys = Object.keys(this.routes);
         const cached = this.compiledRoutes;
@@ -173,17 +194,19 @@ class Router {
             const prefix = normalizeRouteKey(key);
             prefixFor.set(key, prefix);
             const existing = prefixes.get(prefix);
-            // Equivalent spellings resolve independently of insertion order: the canonical spelling, then the lowest key.
+            // When two keys normalize to the same path, prefer the one already in normalized form, then the alphabetically
+            // lowest, so the winner never depends on insertion order.
             if (existing === undefined || (existing !== prefix && (key === prefix || key < existing))) {prefixes.set(prefix, key);}
         }
         this.compiledRoutes = {keys, prefixes, prefixFor};
         return this.compiledRoutes;
     }
 
-    /** Return the longest matching own route-table prefix, falling back to defaultRoute when configured. */
+    /** Find the route key with the longest matching path prefix, else `'defaultRoute'` if one is set, else `null`. */
     private matchRoute(pathname: string): string | null {
         const {prefixes} = this.compileRoutes();
-        // Walk complete path boundaries from longest to shortest, so the first hit is the longest match.
+        // Try the full path, then drop one '/segment' at a time; the first hit is the longest match.
+        // Cutting only at '/' means '/products' matches '/products/42' but not '/products-old'.
         let candidateRoute = prefixes.get(pathname);
         let index = pathname.lastIndexOf('/');
         while (candidateRoute === undefined && index >= 0) {
@@ -197,13 +220,13 @@ class Router {
         return null;
     }
 
-    /** Matched pathname prefix length for a route key, as compiled for matching. */
+    /** Length of the normalized path for a route key, used to slice the matched prefix off `data.url`; 0 for `defaultRoute`. */
     private routePrefixLength(route: string | null) {
         if (!route || route === 'defaultRoute') {return 0;}
         return (this.compileRoutes().prefixFor.get(route) ?? normalizeRouteKey(route)).length;
     }
 
-    /** Parse Router's own committed path without letting a leading '//' turn into an authority. */
+    /** Parse a URL Router committed earlier. A path is prefixed with the origin first, so '//x' stays a path, not a host. */
     private parseStoredUrl(url: string) {
         if (!url.startsWith('/')) {return this.parseNavigationUrl(url);}
         try {
@@ -213,7 +236,7 @@ class Router {
         }
     }
 
-    /** Build decoded path, query, and mediator data for a navigation candidate. */
+    /** Build the location object passed to route callbacks. Path segments that fail to decode are kept as-is. */
     private buildLocationData(url: string, route: string | null, mediatorData: NavigationData | undefined, parsedUrl: URL): LocationData {
         return {
             url,
@@ -232,12 +255,14 @@ class Router {
     }
 
     /**
-     * Start this instance and return it for lifecycle chaining.
-     * In a browser the URL is optional and defaults to window.location. On a server pass the request URL.
+     * Attach listeners and dispatch the starting URL. Does not add a history entry or move focus.
+     * @param url - Request URL on a server. In a browser, omit it to use `window.location`.
+     * @returns This router.
+     * @throws Whatever a guard or route callback throws.
      */
     initialize(url?: string) {
         this.addListeners();
-        // The browser already owns focus for the document it just loaded; only later route changes move it.
+        // The browser has already placed focus on the page it just loaded, so only later navigations move it.
         this.initialDispatch = true;
         try {
             this.navigate(url ?? this.getCurrentUrl(), {}, true);
@@ -247,7 +272,10 @@ class Router {
         return this;
     }
 
-    /** Register browser and optional mediator handlers once. */
+    /**
+     * Attach the click and popstate listeners (browser only) and the mediator listener. Safe to call more than once.
+     * @returns This router.
+     */
     addListeners() {
         if (this.listenersInitialized) {return this;}
         if (this.isBrowserRuntime()) {
@@ -264,13 +292,19 @@ class Router {
         return this;
     }
 
-    /** Release owned state and listeners so the instance can leave the application lifecycle. */
+    /**
+     * Remove this router's listeners. Does not call the active route's `destroy()`.
+     * @returns This router.
+     */
     destroy() {
         this.removeListeners();
         return this;
     }
 
-    /** Release listeners owned by this instance; subclasses may extend the lifecycle hook. */
+    /**
+     * Remove the listeners `addListeners()` attached. Subclasses can override this to release more.
+     * @returns This router.
+     */
     removeListeners() {
         if (!this.listenersInitialized) {return this;}
         if (this.isBrowserRuntime()) {
@@ -286,7 +320,14 @@ class Router {
         return this;
     }
 
-    /** Intercept eligible same-origin push-state links while preserving normal browser actions. */
+    /**
+     * Click handler for `<a href data-pushstate>` links. Takes over only when Router can handle the link:
+     * a plain left click on a same-origin link (no `download`, no other `target`) whose route is app-defined,
+     * runnable, and allowed by its guard. Anything else is left to the browser.
+     * @param e - The click event.
+     * @returns This router if it handled the click, otherwise `true`.
+     * @throws Whatever a guard or route callback throws.
+     */
     eventPushStateClick(e: MouseEvent) {
         if (typeof window === 'undefined') {return true;}
         if (e.defaultPrevented || (e.button !== undefined && e.button !== 0) || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
@@ -298,7 +339,7 @@ class Router {
         if (!anchor) {return true;}
         const target = anchor.getAttribute('target');
         if (anchor.hasAttribute('download') || (target && target.toLowerCase() !== '_self')) {return true;}
-        // The attribute, not the property: SVG <a>.href is an SVGAnimatedString rather than a URL string.
+        // Read the attribute, because on an SVG <a> the href property is an SVGAnimatedString, not a URL.
         const href = anchor.getAttribute('href') ?? '';
         const baseUrl = typeof document !== 'undefined' && document.baseURI
             ? document.baseURI
@@ -309,8 +350,9 @@ class Router {
         const candidateRoute = this.matchRoute(location.pathname);
         const selected = candidateRoute ? this.routes[candidateRoute] : undefined;
         if (!selected || !this.isRunnableRoute(selected) || builtInDefaultRoutes.has(selected)) {return true;}
-        // Guards are synchronous, so navigate first and cancel the native action only when Router took the link;
-        // a guard-rejected link then still navigates natively.
+        // Guards are synchronous, so try the navigation first and cancel the browser's default only if Router took it.
+        // A rejected (or throwing) guard therefore falls back to a normal page load. If the route committed and then
+        // threw, the token has moved, so the default is still cancelled and the browser doesn't navigate twice.
         const token = this.navigationToken;
         let handled = false;
         try {
@@ -321,11 +363,15 @@ class Router {
         return handled ? this : true;
     }
 
-    /** Restore browser history state without adding a new history entry. */
+    /**
+     * Popstate handler for back/forward. Runs the route for the new URL without adding a history entry.
+     * A hash-only change just updates `url` and `locationData.url`.
+     * @returns This router.
+     */
     eventPopState() {
         if (typeof window === 'undefined') {return this;}
         const currentUrl = this.getCurrentUrl();
-        // Same-document fragment navigation (footnotes, skip links) keeps the active route, its view, and focus.
+        // Moving between #fragments on the same page (footnotes, skip links) keeps the current view and focus.
         if (this.route !== null && withoutHash(currentUrl) === withoutHash(this.url)) {
             this.url = currentUrl;
             this.locationData = {...this.locationData, url: currentUrl};
@@ -335,19 +381,30 @@ class Router {
         return this;
     }
 
-    /** Decode URL query parameters, keeping the last value for duplicate keys. */
+    /**
+     * Decode a query string into a plain object. For repeated keys the last value wins.
+     * @param queryString - Query string, with or without the leading `?`.
+     */
     parseQueryString(queryString: string) {
         return Object.fromEntries(new URLSearchParams(queryString));
     }
 
-    /** Build decoded path, query, and mediator data for the selected route. */
+    /**
+     * Rebuild `locationData` from the current `url` and `route`. Leaves it unchanged if the URL can't be parsed.
+     * @param mediatorData - Value to expose as `locationData.data.mediator`.
+     */
     setLocationData(mediatorData?: NavigationData) {
         const parsedUrl = this.parseStoredUrl(this.url || '/');
         if (!parsedUrl) {return;}
         this.locationData = this.buildLocationData(this.url, this.route, mediatorData, parsedUrl);
     }
 
-    /** Update page context after a route renders. DOM effects are browser-only. */
+    /**
+     * Record the route's title in `pageTitle` and, in a browser, set `document.title` and move focus to the route's
+     * `focus` selector (default `main h1`), adding `tabindex="-1"` if needed. `focus: false` skips focus.
+     * @param route - The route that just ran.
+     * @returns This router.
+     */
     applyPageContext(route: Route) {
         if (typeof route === 'function') {
             this.pageTitle = null;
@@ -366,7 +423,17 @@ class Router {
         return this;
     }
 
-    /** Select a route, enforce its guard, transition view lifecycles, and update browser history when available. */
+    /**
+     * Navigate to a URL: match the route, run its guard, commit the new state, call the previous route's `destroy()`,
+     * run the new route, apply title and focus, then push a history entry (browser only, unless `isPopState`).
+     * If route code starts another navigation part-way through, that one wins and this call stops early.
+     * @param url - Destination URL. Omit to re-run the last committed URL (or the current browser URL / `/` at first).
+     * @param mediatorData - Value exposed to the route as `location.data.mediator`.
+     * @param isPopState - `true` to skip adding a history entry.
+     * @returns This router, or `false` if the navigation was rejected (bad or cross-origin URL, no matching route,
+     * guard refused, or nothing to run). A rejected navigation changes nothing.
+     * @throws Whatever a guard or route callback throws. A throwing guard changes nothing; a throwing route stays committed.
+     */
     navigate(url?: string, mediatorData?: NavigationData, isPopState = false) {
         const skipFocus = this.initialDispatch;
         this.initialDispatch = false;
@@ -382,7 +449,7 @@ class Router {
         if (!parsedUrl) {return false;}
         if (this.isBrowserRuntime() && parsedUrl.origin !== window.location.origin) {return false;}
 
-        // Both runtimes commit the documented path + query (+ hash) form, never a full absolute URL.
+        // Store only path, query, and hash, even when a server passed an absolute URL.
         const candidateUrl = `${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`;
         const candidateRoute = this.matchRoute(parsedUrl.pathname);
         if (!candidateRoute) {return false;}
@@ -398,7 +465,7 @@ class Router {
         this.url = candidateUrl;
         this.route = candidateRoute;
         this.locationData = candidateLocationData;
-        // Release ownership before calling out, so a navigation started inside destroy() cannot run it twice.
+        // Clear the stored teardown before calling it, so a navigation started inside destroy() can't call it again.
         const previous = this.activeDestroy;
         this.activeDestroy = undefined;
         if (previous) {
@@ -408,7 +475,7 @@ class Router {
         const selectedView = typeof selected !== 'function' && typeof selected.view === 'object'
             ? selected.view
             : undefined;
-        // Own the lifecycle before initialize() runs: a nested navigation or a throwing initialize() still tears it down.
+        // Store the teardown before initialize() runs, so it still runs later if initialize() throws or navigates away.
         this.activeDestroy = selectedView?.destroy
             ? {receiver: selectedView, callback: selectedView.destroy}
             : undefined;
@@ -419,7 +486,7 @@ class Router {
         } else {
             selectedView!.initialize!(this.scope, candidateLocationData);
         }
-        // A navigation started during initialize() has already committed its own title, focus, and history.
+        // If initialize() started another navigation, that one has already applied its own title, focus, and history.
         if (token !== this.navigationToken) {return this;}
         this.suppressFocus = skipFocus;
         try {
@@ -436,7 +503,7 @@ class Router {
     }
 }
 
-/** Public route configuration and navigation payload types. */
+/** Types for route definitions, location data, and navigation data. */
 namespace Router {
     export type Handler = RouteHandler;
     export type Route = RouteHandler | RouteObject;

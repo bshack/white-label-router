@@ -40,4 +40,6 @@ Route `secure` callbacks are navigation guards. On the server they may participa
 
 Absolute and ordinary path-relative navigation inputs use the same WHATWG URL parsing contract as browser navigation. Query parsing, duplicate-query handling, path-boundary matching, malformed percent-encoded path fragments, route ordering, default routes, and lifecycle ordering follow the same contract across runtimes. A malformed URL candidate is rejected with `false` before Router state changes rather than being committed or thrown through normal navigation flow.
 
+In both runtimes Router commits only the path, query, and hash: after `initialize('https://example.com/products/42?color=blue')`, `router.url` and `location.url` are `/products/42?color=blue`. Route keys are encoded like URL paths, so `'/café'` matches `/caf%C3%A9` on the server and in the browser.
+
 For raw server request targets, preserve the host's path semantics at the adapter boundary and hand Router an absolute URL. In particular, a raw target beginning `//` is a path in HTTP origin-form but a network-path reference to WHATWG `URL`, so passing it directly as a relative navigation string changes its meaning.
