@@ -1,0 +1,20 @@
+{
+  "node": "v24.21.0",
+  "tolerance": 3,
+  "nsPerOp": {
+    "matchRoute 10 routes": 217,
+    "navigate 10 routes": 2551,
+    "matchRoute 1000 routes": 55722,
+    "navigate 1000 routes": 89334,
+    "click 10 routes": 3262,
+    "click 1000 routes": 151973
+  },
+  "counters": {
+    "matchRoute 10 routes: defaultRoute matches": 31000,
+    "navigate 10 routes: route calls": 32000,
+    "matchRoute 1000 routes: defaultRoute matches": 1000,
+    "navigate 1000 routes: route calls": 2000,
+    "click 10 routes: intercepted": 32000,
+    "click 1000 routes: intercepted": 2000
+  }
+}

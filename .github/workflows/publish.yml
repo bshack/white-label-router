@@ -41,11 +41,10 @@ jobs:
           fi
       - run: npm ci --ignore-scripts
       - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
+      # coverage runs the build (which typechecks), the consumer type checks, and every unit test,
+      # and leaves the dist/ that npm pack packages below.
       - run: npm run coverage
       - run: npm run audit
-      - run: npm run build
       - run: npm pack --dry-run --ignore-scripts
       - name: Create release package
         run: npm pack --silent --ignore-scripts

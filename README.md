@@ -88,7 +88,18 @@ Public navigation should remain a real link:
 <a href="/products/42" data-pushstate>View product 42</a>
 ```
 
-`data-pushstate` opts the link into client-side enhancement. Links without it retain native behavior. Modified clicks, non-left clicks, downloads, alternate targets, and cross-origin URLs also remain native.
+`data-pushstate` opts the link into client-side enhancement. Router intercepts a click on an `<a href data-pushstate>` (HTML or SVG; Router reads the `href` attribute, resolved against `document.baseURI`) only when it can actually handle it. These clicks stay native:
+
+- links without `data-pushstate`, or clicks whose default action was already prevented;
+- non-left clicks and clicks with Meta, Ctrl, Shift, or Alt held;
+- links with `download`, or a `target` other than `_self`;
+- links to a `#fragment` of the page already shown (same path and query), which the browser handles as in-page fragment navigation; the resulting `popstate` follows the [hash-only rule](#browser-history-behavior);
+- cross-origin or unparseable URLs;
+- URLs that match no route, or only the placeholder `defaultRoute` the constructor installs (a `defaultRoute` you configure yourself does intercept unmatched links);
+- routes with no runnable view behavior;
+- links whose guard returns anything but `true`, or throws (the guard's error still propagates).
+
+Once a route has been committed, the click's default action is cancelled even if the route's view throws, so the browser does not navigate a second time.
 
 This preserves keyboard behavior, context menus, no-JavaScript navigation, and crawler discovery. Public routes should have directly requestable URLs that return meaningful HTML and appropriate title, description, canonical, and robots metadata.
 
@@ -145,7 +156,28 @@ router.routes = {
 };
 ```
 
-`secure()` must return exactly `true` to allow navigation. Client guards are interface behavior, not server authorization. Router validates the destination guard and runnable view behavior before tearing down the current route. On a successful route change, the previous route's `destroy()` runs before the next route's `initialize()`. Router snapshots the destroy callback that belongs to the lifecycle that actually initialized, so later replacement or mutation of the route table does not retarget teardown. The destroy callback receives the incoming location as `nextLocation`. If browser title/focus work throws after a route has initialized, that initialized lifecycle remains owned and is still torn down before a later successful route starts.
+### Guards
+
+`secure(scope, location)` runs synchronously with the destination location, before anything is torn down. It must return exactly `true` to allow navigation; any other value (including a Promise) rejects it and `navigate()` returns `false`. An error thrown by a guard propagates to the caller and leaves Router state unchanged. Client guards are interface behavior, not server authorization.
+
+### Lifecycle order
+
+A successful navigation runs these steps in order:
+
+1. Match the route and run its guard. Rejection stops here with no state change.
+2. Commit `router.url`, `router.route`, and `router.locationData` for the destination.
+3. Call the previous route's `destroy(scope, nextLocation)`, if it had one.
+4. Run the new route: a function route, a `view` function, or `view.initialize(scope, location)`.
+5. Apply the route's title and focus (browser only; see [Title and focus](#title-and-focus)).
+6. Set `router.previousRoute`, then push a history entry (browser only; skipped for `initialize()` and back/forward).
+
+Router keeps the `destroy` callback of the lifecycle that actually initialized, so replacing or mutating the route table later does not change which teardown runs. That lifecycle stays owned even if `initialize()` throws, or title/focus work throws after it: the route remains committed, the error is rethrown to the caller, and its `destroy()` still runs before the next successful route starts. Title, focus, and history are skipped for a route whose `initialize()` threw.
+
+If the previous route's `destroy()` throws, its error propagates out of `navigate()` and that teardown is never called again: Router releases it before calling it. The destination stays committed (`router.url`, `router.route`, `router.locationData`), but its view does not run, so it owns no `destroy()`, and title, focus, `previousRoute`, and history are skipped. The next navigation therefore starts without a teardown; `navigate()` with no URL re-runs the committed destination to initialize it.
+
+### Navigating from inside a route
+
+`navigate()` is re-entrant. If `initialize()`, `destroy()`, a focus handler, or a mediator event starts another navigation, the newer navigation wins: the outer one stops at that point, applies no title, focus, or history of its own, and returns the router. For example, navigating to `/two` from inside `/one`'s `initialize()` runs `/one`'s `destroy()` and then `/two`'s `initialize()`, and leaves `/two` as the active route.
 
 ## Matching
 
@@ -163,6 +195,10 @@ router.routes = {
 
 `/products/sale` selects `saleRoute` even though `/products` was defined first. When no prefix matches, `defaultRoute` runs if configured.
 
+Route keys are encoded the same way URL parsing encodes paths, so `'/café'` matches a request for `/caf%C3%A9`. Keys that don't start with `/`, or that contain `?` or `#`, can never match a pathname and are ignored (apart from `defaultRoute`). If two keys normalize to the same path (for example `/x/../same` and `/same`), the key already in normalized form wins, otherwise the alphabetically lowest; insertion order never decides.
+
+A new `Router` starts with a placeholder `defaultRoute` that does nothing, so programmatic navigation to an unmatched URL succeeds until you replace `routes`. That placeholder never intercepts link clicks.
+
 ## Location contract
 
 Routes receive the configured `scope` and a location object:
@@ -178,7 +214,12 @@ Routes receive the configured `scope` and a location object:
 }
 ```
 
-`data.url` contains path segments after the matched prefix, `data.query` contains parsed query values, and `data.mediator` contains navigation data supplied programmatically or through `CustomEvent.detail`. Values are URI-decoded with standard WHATWG URL APIs; applications must still validate untrusted values.
+- `url` is the path, query, and hash (`/products/42?color=blue#reviews`), never a full absolute URL. This holds on the server too: `initialize('https://example.com/products/42?color=blue')` produces `url: '/products/42?color=blue'`. `router.url` holds the same value.
+- `data.url` contains the URI-decoded path segments after the matched route prefix (all segments for `defaultRoute`). A segment with malformed percent-encoding is passed through undecoded.
+- `data.query` contains query values decoded with `URLSearchParams`; for duplicate keys the last value wins.
+- `data.mediator` contains navigation data passed to `navigate()` or through `CustomEvent.detail`. It is `{}` for link clicks, `initialize()`, and back/forward, and `undefined` when `navigate()` is called without data.
+
+Applications must still validate these untrusted values.
 
 ## Programmatic navigation
 
@@ -192,7 +233,7 @@ In browsers, successful navigation updates history unless the call represents `p
 
 Rejected navigation is atomic from Router's perspective: malformed or wrong-type URL candidates, cross-origin browser URLs, URLs with no matching route/default route, failed guards, and routes without runnable view behavior return `false` without destroying the current route, pushing browser history, or replacing the last successful URL, selected route, or location payload.
 
-Calling `navigate()` without a URL dispatches the current browser URL. In a non-browser runtime the safe default is `/`; server applications should normally supply a fully qualified request URL explicitly.
+Calling `navigate()` without a URL re-runs Router's last committed URL. In a browser, that re-run adds a history entry only when the address bar does not already show that URL, so it never duplicates the current entry. Before anything has been committed it uses the current browser URL, or `/` on a server; server applications should normally supply a fully qualified request URL explicitly. Errors thrown by a guard or a route callback propagate out of `navigate()`.
 
 ## Mediator integration
 
@@ -214,7 +255,7 @@ mediator.dispatchEvent(new CustomEvent('router:navigate', {
 }));
 ```
 
-The `CustomEvent.detail` value becomes `location.data.mediator`. `destroy()` removes the listener owned by Router. Repeated listener initialization is idempotent. Reassigning `router.mediator` while listeners are active moves the `router:navigate` subscription to the replacement.
+The `CustomEvent.detail` object becomes `location.data.mediator`, and its `url` (if any) is the destination. A detail without `url`, or a `null`/missing detail, re-runs the current URL without adding a duplicate history entry; a detail that is not a plain object (a string, number, or array) is ignored. Mediator navigations to a `url` push browser history like `navigate()`. `destroy()` removes the listener owned by Router. Repeated listener initialization is idempotent. Reassigning `router.mediator` while listeners are active moves the `router:navigate` subscription to the replacement.
 
 Router does not import or require `white-label-mediator`; the integration is structural so another compatible EventTarget can be used instead.
 
@@ -259,11 +300,13 @@ router.routes = {
 };
 ```
 
-The default focus selector is `main h1`. Set `focus: false` for an in-page refinement that should preserve current focus. Server runtimes retain `pageTitle` as route state but do not mutate a document or focus target.
+After a route renders, Router sets `document.title` from `title` and focuses the first element matching `focus` (default `main h1`), adding `tabindex="-1"` if the element has no `tabindex`. Set `focus: false` for an in-page refinement that should preserve current focus. The first dispatch from `initialize()` sets the title but does not move focus, because the browser already owns focus on a freshly loaded page; later navigations do. Server runtimes retain `pageTitle` as route state but do not mutate a document or focus target.
 
 ## Browser history behavior
 
 Initialization dispatches the current URL without adding a duplicate history entry. Back/forward navigation reads `window.location`—including path, query, and hash—even when history state is null or belongs to another application. History state is not treated as the authoritative URL. Rejected navigation does not add a history entry.
+
+When back/forward, or a click on a link to a `#fragment` of the current page, changes only the hash (footnotes, skip links), Router updates `router.url` and `locationData.url` but does not re-run the route, call `destroy()`, or move focus. A change to the path or query re-runs the route as usual.
 
 ## Public API
 
@@ -277,12 +320,14 @@ Initialization dispatches the current URL without adding a duplicate history ent
 | `navigate(url?, data?, isPopState?)` | Match and run a route; update browser history when appropriate. Invalid/malformed URL candidates and other rejected navigation preserve current route state. | The same Router on success; `false` for rejected navigation. |
 | `addListeners()` | Attach browser and optional mediator listeners once. | The same `Router` instance. |
 | `removeListeners()` | Release listeners owned by this router. | The same `Router` instance. |
-| `destroy()` | Release routing listeners. | The same `Router` instance after cleanup. |
+| `destroy()` | Release routing listeners. Does not call the active route's `destroy()`. | The same `Router` instance after cleanup. |
 | `parseQueryString(query)` | Decode a query string using `URLSearchParams`. | A plain object containing the last value for each query key. |
 | `setLocationData(data?)` | Rebuild the current route location payload. | `undefined`; updates `locationData` in place. |
 | `applyPageContext(route)` | Update route title/focus context when applicable. | The same `Router` instance. |
-| `eventPushStateClick(event)` | Handle an eligible browser push-state click. | The same Router after handled navigation; `true` when native/default handling should continue. |
-| `eventPopState()` | Dispatch the current browser history location. | The same `Router` instance. |
+| `eventPushStateClick(event)` | Handle an eligible browser push-state click; same-page `#fragment` links stay native (see [Progressive enhancement first](#progressive-enhancement-first)). | The same Router after handled navigation; `true` when native/default handling should continue. |
+| `eventPopState()` | Dispatch the current browser history location; a hash-only change just updates `url`. | The same `Router` instance. |
+
+Router records navigation state on public properties that applications should treat as read-only: `url`, `route`, `previousRoute`, `locationData`, and `pageTitle`.
 
 ## TypeScript
 
@@ -304,17 +349,19 @@ router.initialize();
 
 ```sh
 npm ci --ignore-scripts
-npm run lint
-npm run typecheck
-npm test
-npm run coverage
-npm run audit
-npm pack --dry-run
+npm run lint && npm run coverage && npm run audit
 ```
 
-Tests cover browser behavior, scoped progressive navigation, DOM-free server routing, atomic rejected navigation, mediator reassignment, and parity of the shared route contract. Coverage enforces 100% statements, branches, functions, and lines per implementation file. CI verifies the documented Node minimum and primary Node line, audits dependencies, packs the package, and verifies the public API across npm, Yarn, and pnpm.
+`npm run coverage` builds (which typechecks), runs the consumer type checks, and runs every Node test, so `npm run typecheck` and `npm test` don't need separate runs. For a quick loop while iterating, use `npm run build && node --test test/<file>.test.js`. `npm run lint` covers `src/`, `test/`, and `benchmark/`. `dist/` is generated and not committed; `npm run build` (also run by `prepare` for git installs) creates it.
 
-Edit `src/*.ts` and regenerate `dist`; do not edit generated files directly.
+After `npm run build`:
+
+- `npm run test:browser` runs `test/browser/` in real Chromium through Playwright (real link clicks, back/forward, fragments, focus, `navigationRoot`) against pages served by a local `node:http` server. It is not part of `npm test`. Install a browser once with `npx playwright install chromium`, or point `PLAYWRIGHT_CHROMIUM_EXECUTABLE` at an existing Chromium.
+- `npm run benchmark` times `matchRoute`, `navigate`, and link clicks with 10 and 1,000 routes. `npm run bench:ci` is a short version that fails if any operation is more than 3x slower than `benchmark/baseline.json` or a deterministic counter differs. Refresh the baseline after an intended performance change with `node benchmark/router.bench.js --ci --update-baseline` and commit the result.
+
+Tests cover browser behavior, scoped progressive navigation, DOM-free server routing, atomic rejected navigation, mediator reassignment, and parity of the shared route contract. Coverage enforces 100% statements, branches, functions, and lines per implementation file. CI verifies the documented Node minimum and primary Node line, runs the short benchmark and the Chromium browser tests, audits dependencies, packs the package, and verifies the public API across npm, Yarn, and pnpm.
+
+Edit `src/index.ts`; `dist` is build output and is not edited or committed. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Design boundary
 

@@ -2,18 +2,19 @@
 
 Thanks for improving `white-label-router`.
 
-## Setup
+## Setup and verification
+
+Use Node.js `^22.18.0 || >=24.11.0` and npm 11 or later.
 
 ```sh
 npm ci --ignore-scripts
-npm run build
-npm run lint
-npm run typecheck
-npm test
-npm run coverage
-npm run audit
-npm pack --dry-run
+npm run build && node --test test/<file>.test.js   # quick loop while iterating
+npm run lint && npm run coverage && npm run audit   # full check before opening a PR
 ```
+
+`npm run coverage` builds (which typechecks), runs the consumer type checks in `test-types/`, and runs every Node test with 100% coverage required per file, so `npm run typecheck` and `npm test` don't need separate runs. Lint warnings count as failures. Edit `src/index.ts`, not `dist/`; `dist/` is build output and is git-ignored. `npm run lint` covers `src/`, `test/`, and `benchmark/`.
+
+After `npm run build`, `npm run test:browser` runs the real-Chromium Playwright tests in `test/browser/` (install a browser once with `npx playwright install chromium`), and `npm run bench:ci` compares a short benchmark with `benchmark/baseline.json` (fails past 3x). After an intended performance change, refresh the baseline with `node benchmark/router.bench.js --ci --update-baseline`; `npm run benchmark` gives the full run.
 
 ## Pull requests
 

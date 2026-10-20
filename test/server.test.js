@@ -42,8 +42,11 @@ test('server runtime dispatches the same route contract without DOM globals', t 
     assert.equal(calls.length, 1);
 
     assert.equal(router.navigate('/about?x=1&x=2'), router);
-    assert.deepEqual(calls[1][0], 'destroy');
-    assert.deepEqual(calls[2][0], 'about');
+    assert.equal(calls[1][0], 'destroy');
+    // destroy() receives the incoming location (README: nextLocation).
+    assert.equal(calls[1][1].url, '/about?x=1&x=2');
+    assert.equal(calls[1][1], calls[2][1]);
+    assert.equal(calls[2][0], 'about');
     assert.deepEqual(router.locationData.data.query, {x: '2'});
     assert.equal(router.pageTitle, null);
 
@@ -94,4 +97,43 @@ test('server initialize defaults to root and navigate does not require history',
     fourth.setLocationData();
     assert.equal(fourth.locationData.url, '');
     assert.deepEqual(fourth.locationData.data.url, []);
+});
+
+test('server runtime matches, guards, and decodes fully qualified request URLs', t => {
+    withoutBrowserGlobals(t);
+    const router = new Router();
+    const calls = [];
+    router.routes = {
+        '/products': {
+            title: 'Products',
+            secure: (_scope, location) => location.data.query.allow === 'yes',
+            view: (_scope, location) => calls.push(['products', location.data.url, location.data.query])
+        },
+        '/admin': () => calls.push(['admin']),
+        defaultRoute: (_scope, location) => calls.push(['default', location.data.url])
+    };
+
+    assert.equal(router.initialize('https://example.com/products/a%20b?allow=yes&color=blue#details'), router);
+    assert.equal(router.route, '/products');
+    assert.equal(router.pageTitle, 'Products');
+    assert.deepEqual(router.locationData.data.url, ['a b']);
+    assert.deepEqual(router.locationData.data.query, {allow: 'yes', color: 'blue'});
+
+    assert.equal(router.navigate('https://example.com/products/2?allow=no'), false);
+    assert.equal(router.route, '/products');
+    assert.deepEqual(router.locationData.data.url, ['a b']);
+
+    assert.equal(router.navigate('https://example.com/products-old'), router);
+    assert.equal(router.route, 'defaultRoute');
+
+    // An absolute URL keeps a leading '//' as path, so it cannot be reinterpreted as another host's /admin.
+    assert.equal(router.navigate('https://example.com//evil.test/admin'), router);
+    assert.equal(router.route, 'defaultRoute');
+    assert.deepEqual(router.locationData.data.url, ['evil.test', 'admin']);
+
+    assert.deepEqual(calls, [
+        ['products', ['a b'], {allow: 'yes', color: 'blue'}],
+        ['default', ['products-old']],
+        ['default', ['evil.test', 'admin']]
+    ]);
 });
