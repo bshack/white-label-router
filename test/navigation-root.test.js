@@ -101,3 +101,24 @@ test('navigationRoot can be configured in a non-browser lifecycle', () => {
     router.removeListeners();
     assert.equal(configuredRoot.hasClickListener, false);
 });
+
+test('navigationRoot scopes click ownership but not the focus target lookup', t => {
+    browser(t);
+    const owned = root();
+    const queried = [];
+    let focused = 0;
+    const heading = {hasAttribute() {return true;}, setAttribute() {}, focus() {focused++;}};
+    // The heading lives outside the owned region, so only a document-wide lookup can find it.
+    owned.querySelector = () => {throw new Error('focus lookup must not be scoped to navigationRoot');};
+    document.querySelector = selector => {queried.push(selector); return selector === 'main h1' ? heading : null;};
+    const router = new Router();
+    router.routes = {'/search': {title: 'Search', view: () => true}};
+    router.navigationRoot = owned;
+    router.addListeners();
+
+    owned.dispatch(click('/search?color=blue'));
+    assert.equal(router.url, '/search?color=blue');
+    assert.deepEqual(queried, ['main h1']);
+    assert.equal(focused, 1);
+    router.removeListeners();
+});

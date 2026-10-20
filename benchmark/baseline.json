@@ -4,17 +4,29 @@
   "nsPerOp": {
     "matchRoute 10 routes": 217,
     "navigate 10 routes": 2551,
+    "matchRoute 10 routes indexed": 165,
+    "navigate 10 routes indexed": 1821,
     "matchRoute 1000 routes": 55722,
     "navigate 1000 routes": 89334,
+    "matchRoute 1000 routes indexed": 150,
+    "navigate 1000 routes indexed": 2079,
     "click 10 routes": 3262,
-    "click 1000 routes": 151973
+    "click 10 routes indexed": 2369,
+    "click 1000 routes": 151973,
+    "click 1000 routes indexed": 2404
   },
   "counters": {
     "matchRoute 10 routes: defaultRoute matches": 31000,
     "navigate 10 routes: route calls": 32000,
+    "matchRoute 10 routes indexed: defaultRoute matches": 31000,
+    "navigate 10 routes indexed: route calls": 32000,
     "matchRoute 1000 routes: defaultRoute matches": 1000,
     "navigate 1000 routes: route calls": 2000,
+    "matchRoute 1000 routes indexed: defaultRoute matches": 1000,
+    "navigate 1000 routes indexed: route calls": 2000,
     "click 10 routes: intercepted": 32000,
-    "click 1000 routes: intercepted": 2000
+    "click 10 routes indexed: intercepted": 32000,
+    "click 1000 routes: intercepted": 2000,
+    "click 1000 routes indexed: intercepted": 2000
   }
 }

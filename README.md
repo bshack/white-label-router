@@ -122,6 +122,8 @@ Only click events that reach `navigationRoot` are considered by that Router. Lin
 
 `navigationRoot` is deliberately separate from `scope`: `navigationRoot` controls where enhanced-link clicks are observed; `scope` is application data passed to route callbacks.
 
+`navigationRoot` does not limit focus. After a navigation, the route's `focus` selector (default `main h1`) is looked up in the whole document, so a heading outside the owned region still receives focus. Use a more specific `focus` selector, or `focus: false`, when the region should keep focus itself.
+
 ## Define routes
 
 A route can be a function:
@@ -196,6 +198,18 @@ router.routes = {
 `/products/sale` selects `saleRoute` even though `/products` was defined first. When no prefix matches, `defaultRoute` runs if configured.
 
 Route keys are encoded the same way URL parsing encodes paths, so `'/café'` matches a request for `/caf%C3%A9`. Keys that don't start with `/`, or that contain `?` or `#`, can never match a pathname and are ignored (apart from `defaultRoute`). If two keys normalize to the same path (for example `/x/../same` and `/same`), the key already in normalized form wins, otherwise the alphabetically lowest; insertion order never decides.
+
+A trailing `/` is part of the key, not a wildcard. `'/docs'` matches `/docs`, `/docs/`, and `/docs/x`, but `'/docs/'` matches only `/docs/` itself (and paths below its empty last segment, such as `/docs//x`). It doesn't match `/docs` or `/docs/x`. Declare `'/docs'` to cover the section. If both keys exist, `/docs/` selects `'/docs/'` as the longer match. `'/'` follows the same rule: it matches only the root path, so other unmatched paths go to `defaultRoute`.
+
+### Large route tables
+
+Each match reads the keys of `routes` again so that keys added or removed in place (`router.routes['/x'] = fn`) take effect immediately. That costs time in proportion to the number of keys: about 50 µs per match at 1,000 routes in `npm run benchmark`. For a large table that doesn't change after setup, call `router.indexRoutes()` once the table is ready. Matching then uses the stored index (about 0.15 µs at 1,000 routes) until `routes` is assigned a different object, which drops the index. After adding or removing keys on the same object, call `indexRoutes()` again. Until you do, an added key is not matched, and navigation to a removed key's paths returns `false`. Replacing the value of an existing key needs no re-index.
+
+```js
+router.routes = buildRouteTable(); // thousands of keys
+router.indexRoutes();
+router.initialize();
+```
 
 A new `Router` starts with a placeholder `defaultRoute` that does nothing, so programmatic navigation to an unmatched URL succeeds until you replace `routes`. That placeholder never intercepts link clicks.
 
@@ -300,7 +314,7 @@ router.routes = {
 };
 ```
 
-After a route renders, Router sets `document.title` from `title` and focuses the first element matching `focus` (default `main h1`), adding `tabindex="-1"` if the element has no `tabindex`. Set `focus: false` for an in-page refinement that should preserve current focus. The first dispatch from `initialize()` sets the title but does not move focus, because the browser already owns focus on a freshly loaded page; later navigations do. Server runtimes retain `pageTitle` as route state but do not mutate a document or focus target.
+After a route renders, Router sets `document.title` from `title` and focuses the first element in the document matching `focus` (default `main h1`), regardless of `navigationRoot`, adding `tabindex="-1"` if the element has no `tabindex`. Set `focus: false` for an in-page refinement that should preserve current focus. The first dispatch from `initialize()` sets the title but does not move focus, because the browser already owns focus on a freshly loaded page; later navigations do. Server runtimes retain `pageTitle` as route state but do not mutate a document or focus target.
 
 ## Browser history behavior
 
@@ -320,6 +334,7 @@ When back/forward, or a click on a link to a `#fragment` of the current page, ch
 | `navigate(url?, data?, isPopState?)` | Match and run a route; update browser history when appropriate. Invalid/malformed URL candidates and other rejected navigation preserve current route state. | The same Router on success; `false` for rejected navigation. |
 | `addListeners()` | Attach browser and optional mediator listeners once. | The same `Router` instance. |
 | `removeListeners()` | Release listeners owned by this router. | The same `Router` instance. |
+| `indexRoutes()` | Index the current route keys and reuse that index until `routes` is reassigned or this is called again (see [Large route tables](#large-route-tables)). | The same `Router` instance. |
 | `destroy()` | Release routing listeners. Does not call the active route's `destroy()`. | The same `Router` instance after cleanup. |
 | `parseQueryString(query)` | Decode a query string using `URLSearchParams`. | A plain object containing the last value for each query key. |
 | `setLocationData(data?)` | Rebuild the current route location payload. | `undefined`; updates `locationData` in place. |

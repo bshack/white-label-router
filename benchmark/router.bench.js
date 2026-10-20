@@ -51,42 +51,46 @@ function requestPaths(size) {
 
 const results = {};
 const counters = {};
+// Each size also runs with indexRoutes(), labeled 'indexed', to show what skipping the per-match key scan saves.
 const sizes = [10, 1000];
+const variants = sizes.flatMap(size => [{size, indexed: false, label: `${size} routes`}, {size, indexed: true, label: `${size} routes indexed`}]);
 
 // Server runtime first: no window/document, so navigate() has no history or focus work.
-for (const size of sizes) {
+for (const {size, indexed, label} of variants) {
     let routeCalls = 0;
     const router = new Router();
     router.routes = routeTable(size, () => {routeCalls++;});
+    if (indexed) {router.indexRoutes();}
     const paths = requestPaths(size);
     const iterations = size === 10 ? 200000 : 5000;
     const match = time(iterations, i => router.matchRoute(paths[i & 127]) === 'defaultRoute' ? 1 : 0);
-    results[`matchRoute ${size} routes`] = match.nsPerOp;
-    counters[`matchRoute ${size} routes: defaultRoute matches`] = match.count;
+    results[`matchRoute ${label}`] = match.nsPerOp;
+    counters[`matchRoute ${label}: defaultRoute matches`] = match.count;
     routeCalls = 0;
-    results[`navigate ${size} routes`] = time(iterations / 2, i => router.navigate(`${paths[i & 127]}?q=1`) === router ? 1 : 0).nsPerOp;
-    counters[`navigate ${size} routes: route calls`] = routeCalls;
+    results[`navigate ${label}`] = time(iterations / 2, i => router.navigate(`${paths[i & 127]}?q=1`) === router ? 1 : 0).nsPerOp;
+    counters[`navigate ${label}: route calls`] = routeCalls;
 }
 
 // Browser runtime with minimal stubs: measures click eligibility checks, matching, and navigation.
 global.window = {location: {origin: 'https://bench.test', href: 'https://bench.test/', pathname: '/', search: '', hash: ''}, history: {pushState() {}}, addEventListener() {}, removeEventListener() {}};
 global.document = {title: '', baseURI: 'https://bench.test/', addEventListener() {}, removeEventListener() {}, querySelector() {return null;}};
-for (const size of sizes) {
+for (const {size, indexed, label} of variants) {
     const router = new Router();
     router.routes = routeTable(size, () => true);
+    if (indexed) {router.indexRoutes();}
     const events = requestPaths(size).map(href => {
         const anchor = {getAttribute: name => name === 'href' ? href : null, hasAttribute: () => false};
         return {button: 0, target: {closest: () => anchor}, preventDefault() {}};
     });
     const click = time(size === 10 ? 100000 : 5000, i => router.eventPushStateClick(events[i & 127]) === router ? 1 : 0);
-    results[`click ${size} routes`] = click.nsPerOp;
-    counters[`click ${size} routes: intercepted`] = click.count;
+    results[`click ${label}`] = click.nsPerOp;
+    counters[`click ${label}: intercepted`] = click.count;
 }
 delete global.window;
 delete global.document;
 
 console.log(`Router benchmark (${ci ? 'short CI run' : 'full run'}, Node ${process.version})`);
-for (const [name, ns] of Object.entries(results)) {console.log(`${name.padEnd(24)} ${ns.toFixed(0).padStart(7)} ns/op`);}
+for (const [name, ns] of Object.entries(results)) {console.log(`${name.padEnd(32)} ${ns.toFixed(0).padStart(7)} ns/op`);}
 
 if (!ci) {process.exit(0);}
 
