@@ -12,7 +12,9 @@ npm run build && node --test test/<file>.test.js   # quick loop while iterating
 npm run lint && npm run coverage && npm run audit   # full check before opening a PR
 ```
 
-`npm run coverage` builds (which typechecks), runs the consumer type checks in `test-types/`, and runs every Node test with 100% coverage required per file, so `npm run typecheck` and `npm test` don't need separate runs. Lint warnings count as failures. Edit `src/index.ts`, not `dist/`; the build rewrites the tracked `dist/`, so restore it (`git checkout -- dist`) unless your change needs regenerated output.
+`npm run coverage` builds (which typechecks), runs the consumer type checks in `test-types/`, and runs every Node test with 100% coverage required per file, so `npm run typecheck` and `npm test` don't need separate runs. Lint warnings count as failures. Edit `src/index.ts`, not `dist/`; `dist/` is build output and is git-ignored. `npm run lint` covers `src/`, `test/`, and `benchmark/`.
+
+After `npm run build`, `npm run test:browser` runs the real-Chromium Playwright tests in `test/browser/` (install a browser once with `npx playwright install chromium`), and `npm run bench:ci` compares a short benchmark with `benchmark/baseline.json` (fails past 3x). After an intended performance change, refresh the baseline with `node benchmark/router.bench.js --ci --update-baseline`; `npm run benchmark` gives the full run.
 
 ## Pull requests
 

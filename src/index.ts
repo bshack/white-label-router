@@ -323,7 +323,8 @@ class Router {
     /**
      * Click handler for `<a href data-pushstate>` links. Takes over only when Router can handle the link:
      * a plain left click on a same-origin link (no `download`, no other `target`) whose route is app-defined,
-     * runnable, and allowed by its guard. Anything else is left to the browser.
+     * runnable, and allowed by its guard, and that is not just a `#fragment` of the current page. Anything else is left
+     * to the browser.
      * @param e - The click event.
      * @returns This router if it handled the click, otherwise `true`.
      * @throws Whatever a guard or route callback throws.
@@ -347,6 +348,11 @@ class Router {
         let location: URL;
         try {location = new URL(href, baseUrl);} catch {return true;}
         if (location.origin !== window.location.origin) {return true;}
+        // A link to a #fragment of the page already shown is native fragment navigation: let the browser scroll to it.
+        // Its popstate then only updates `url`, matching the fragment-only back/forward rule.
+        if (location.href.includes('#') && location.pathname === window.location.pathname && location.search === window.location.search) {
+            return true;
+        }
         const candidateRoute = this.matchRoute(location.pathname);
         const selected = candidateRoute ? this.routes[candidateRoute] : undefined;
         if (!selected || !this.isRunnableRoute(selected) || builtInDefaultRoutes.has(selected)) {return true;}
@@ -465,7 +471,8 @@ class Router {
         this.url = candidateUrl;
         this.route = candidateRoute;
         this.locationData = candidateLocationData;
-        // Clear the stored teardown before calling it, so a navigation started inside destroy() can't call it again.
+        // Clear the stored teardown before calling it, so a navigation started inside destroy() can't call it again,
+        // and a destroy() that throws is not retried: its error propagates with the destination committed but not run.
         const previous = this.activeDestroy;
         this.activeDestroy = undefined;
         if (previous) {
@@ -496,7 +503,9 @@ class Router {
         }
         if (token !== this.navigationToken) {return this;}
         this.previousRoute = this.route;
-        if (!isPopState && this.isBrowserRuntime()) {
+        // Re-running the current URL (no `url` given, e.g. a mediator event without a destination) must not add a
+        // duplicate history entry for the address already shown.
+        if (!isPopState && this.isBrowserRuntime() && !(url === undefined && parsedUrl.href === window.location.href)) {
             window.history.pushState(this.url, this.pageTitle || '', parsedUrl.href);
         }
         return this;

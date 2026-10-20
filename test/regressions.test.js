@@ -313,3 +313,71 @@ test('rebuilding location data under an opaque browser origin keeps the previous
     router.setLocationData();
     assert.equal(router.locationData, previous);
 });
+
+test('a throwing destroy() propagates once, is not retried, and leaves no lifecycle owned', t => {
+    const {history} = browser(t, '/start');
+    const router = new Router();
+    const calls = [];
+    router.routes = {
+        '/start': () => calls.push('start'),
+        '/broken': {view: {initialize: () => calls.push('broken:init'), destroy() {calls.push('broken:destroy'); throw new Error('teardown failed');}}},
+        '/next': {view: {initialize: () => calls.push('next:init'), destroy: () => calls.push('next:destroy')}},
+        '/last': () => calls.push('last')
+    };
+    router.navigate('/broken');
+    assert.throws(() => router.navigate('/next'), /teardown failed/);
+    // The destination is committed but its view never ran, so it owns no teardown and no history entry was added.
+    assert.equal(router.route, '/next');
+    assert.equal(router.url, '/next');
+    assert.equal(router.previousRoute, '/broken');
+    assert.deepEqual(history.map(entry => entry[0]), ['/broken']);
+    router.navigate('/last');
+    assert.deepEqual(calls, ['broken:init', 'broken:destroy', 'last']);
+    // Re-running the committed URL after a failed teardown initializes it normally.
+    router.navigate('/next');
+    router.navigate();
+    assert.deepEqual(calls, ['broken:init', 'broken:destroy', 'last', 'next:init', 'next:destroy', 'next:init']);
+});
+
+test('a mediator event without a destination re-runs the current URL without a duplicate history entry', t => {
+    const {history} = browser(t, '/page');
+    const router = new Router();
+    const mediator = new EventTarget();
+    const calls = [];
+    router.mediator = mediator;
+    router.routes = {'/page': (_scope, location) => calls.push(location.data.mediator), '/other': () => true};
+    router.initialize();
+    mediator.dispatchEvent(new CustomEvent('router:navigate'));
+    mediator.dispatchEvent(new CustomEvent('router:navigate', {detail: {reason: 'refresh'}}));
+    assert.deepEqual(calls, [{}, {}, {reason: 'refresh'}]);
+    assert.equal(router.url, '/page');
+    assert.deepEqual(history, []);
+    // When the address bar does not show the committed URL, re-running it still records that URL.
+    window.location.href = 'https://example.test/elsewhere';
+    router.navigate();
+    assert.deepEqual(history.map(entry => entry[0]), ['/page']);
+    router.destroy();
+});
+
+test('a push-state link to a #fragment of the current page stays native and does not re-run the route', t => {
+    const {history} = browser(t, '/doc');
+    const router = new Router();
+    const calls = [];
+    router.routes = {'/doc': {view: {initialize: () => calls.push('doc:init'), destroy: () => calls.push('doc:destroy')}}};
+    router.initialize();
+    for (const href of ['#section', '/doc#section', '#']) {
+        const event = click(href);
+        assert.equal(router.eventPushStateClick(event), true, href);
+        assert.equal(event.prevented, false, href);
+    }
+    assert.deepEqual(calls, ['doc:init']);
+    assert.deepEqual(history, []);
+    // A different query, or the same path without a fragment, is a real navigation.
+    for (const href of ['/doc?page=2#section', '/doc']) {
+        const event = click(href);
+        assert.equal(router.eventPushStateClick(event), router, href);
+        assert.equal(event.prevented, true, href);
+    }
+    assert.deepEqual(calls, ['doc:init', 'doc:destroy', 'doc:init', 'doc:destroy', 'doc:init']);
+    router.destroy();
+});
