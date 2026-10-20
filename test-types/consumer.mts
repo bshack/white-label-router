@@ -3,6 +3,7 @@ const router = new Router();
 const route: Router.Route = (scope, location) => location.data.query.name;
 router.routes['/hello'] = route;
 router.navigate('/hello');
+const indexed: Router = router.indexRoutes();
 router.navigationRoot = document.querySelector('main');
 router.navigationRoot = document;
 router.navigationRoot = null;
@@ -17,4 +18,6 @@ const invalidSecure: Router.Route = {secure: true};
 router.navigate(42);
 // @ts-expect-error navigation roots must be a Document, Element, or null.
 router.navigationRoot = 'main';
-void [invalidFocus, invalidSecure];
+// @ts-expect-error indexRoutes takes no arguments.
+router.indexRoutes({});
+void [invalidFocus, invalidSecure, indexed];

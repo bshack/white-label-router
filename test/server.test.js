@@ -137,3 +137,69 @@ test('server runtime matches, guards, and decodes fully qualified request URLs',
         ['default', ['evil.test', 'admin']]
     ]);
 });
+
+test('indexRoutes keeps matching against the indexed keys until it runs again or routes is reassigned', t => {
+    withoutBrowserGlobals(t);
+    const router = new Router();
+    const calls = [];
+    const routes = {
+        '/a': () => calls.push('a'),
+        defaultRoute: () => calls.push('default')
+    };
+    router.routes = routes;
+    assert.equal(router.indexRoutes(), router);
+
+    // Adding a key in place is not seen until the next indexRoutes().
+    routes['/b'] = () => calls.push('b');
+    router.navigate('/b');
+    assert.equal(router.route, 'defaultRoute');
+    router.indexRoutes();
+    router.navigate('/b/1');
+    assert.equal(router.route, '/b');
+
+    // Replacing the value of an indexed key takes effect without re-indexing.
+    routes['/a'] = () => calls.push('a2');
+    router.navigate('/a');
+    assert.deepEqual(calls, ['default', 'b', 'a2']);
+
+    // A key removed in place still claims its paths until re-indexing, so navigation there is refused as for an
+    // undefined route; once re-indexed, the path falls through to defaultRoute.
+    delete routes['/b'];
+    assert.equal(router.navigate('/b'), false);
+    assert.equal(router.route, '/a');
+    router.indexRoutes();
+    router.navigate('/b');
+    assert.equal(router.route, 'defaultRoute');
+
+    // Assigning a different object drops the index, so in-place edits to the new object are seen again.
+    const replacement = {defaultRoute: () => calls.push('default2')};
+    router.routes = replacement;
+    replacement['/c'] = () => calls.push('c');
+    router.navigate('/c');
+    assert.equal(router.route, '/c');
+    replacement['/d'] = () => calls.push('d');
+    router.navigate('/d');
+    assert.equal(router.route, '/d');
+    assert.deepEqual(calls.slice(-3), ['default', 'c', 'd']);
+});
+
+test('a trailing slash in a route key is literal', t => {
+    withoutBrowserGlobals(t);
+    const router = new Router();
+    router.routes = {
+        '/docs': () => true,
+        '/docs/': () => true,
+        '/guide/': () => true,
+        '/': () => true,
+        defaultRoute: () => true
+    };
+    const routeFor = url => {router.navigate(url); return [router.route, router.locationData.data.url];};
+    assert.deepEqual(routeFor('/docs'), ['/docs', []]);
+    assert.deepEqual(routeFor('/docs/'), ['/docs/', []]);
+    assert.deepEqual(routeFor('/docs/x'), ['/docs', ['x']]);
+    assert.deepEqual(routeFor('/guide/'), ['/guide/', []]);
+    assert.deepEqual(routeFor('/guide'), ['defaultRoute', ['guide']]);
+    assert.deepEqual(routeFor('/guide/x'), ['defaultRoute', ['guide', 'x']]);
+    assert.deepEqual(routeFor('/'), ['/', []]);
+    assert.deepEqual(routeFor('/other'), ['defaultRoute', ['other']]);
+});

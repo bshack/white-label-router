@@ -69,6 +69,8 @@ class Router {
     private boundNavigationRoot: Document | Element | null = null;
     private activeDestroy: ActiveDestroy | undefined;
     private compiledRoutes: CompiledRoutes | undefined;
+    // The routes object indexRoutes() indexed. While `routes` is still that object, matching trusts the index as is.
+    private indexedRoutes: Record<string, Route> | undefined;
     // Bumped by each navigation that passes its guard. If it changes while a navigation is calling out to app code,
     // a newer navigation has started, and the older one stops before touching title, focus, or history.
     private navigationToken = 0;
@@ -180,10 +182,30 @@ class Router {
         return typeof route === 'function' || typeof route.view === 'function' ||
             Boolean(route.view && typeof route.view.initialize === 'function');
     }
+
+    /**
+     * Index the current route keys and match against that index without re-reading the keys on every navigation.
+     * Without it, each match lists the keys of `routes` to notice in-place edits, which costs time in proportion to
+     * the number of routes. Use it for large route tables that stop changing after setup. Assigning a different object to
+     * `routes` drops the index; after adding or removing keys on the same object, call `indexRoutes()` again. Until then,
+     * an added key is not matched, and a removed key still claims its paths, so `navigate()` returns `false` for them
+     * as it does for a key set to `undefined`.
+     * Replacing the value of an existing key needs no re-index, because the route is looked up when it runs.
+     * @returns This router.
+     */
+    indexRoutes() {
+        this.indexedRoutes = undefined;
+        this.compileRoutes();
+        this.indexedRoutes = this.routes;
+        return this;
+    }
+
     /** Build (or reuse) the lookup tables for the current route keys. Reused while the own key list is unchanged. */
     private compileRoutes(): CompiledRoutes {
-        const keys = Object.keys(this.routes);
         const cached = this.compiledRoutes;
+        if (cached && this.indexedRoutes === this.routes) {return cached;}
+        this.indexedRoutes = undefined;
+        const keys = Object.keys(this.routes);
         if (cached && cached.keys.length === keys.length && cached.keys.every((key, index) => key === keys[index])) {
             return cached;
         }
