@@ -4,6 +4,8 @@ updates:
     directory: /
     schedule: {interval: weekly, day: monday, time: "09:00", timezone: America/New_York}
     open-pull-requests-limit: 10
+    # Supported runtimes are Node ^22.18 || >=24.11; @types/node majors past 24 describe unsupported APIs.
+    ignore: [{dependency-name: "@types/node", update-types: ["version-update:semver-major"]}]
     groups:
       production-dependencies: {dependency-type: production, update-types: [minor, patch]}
       development-dependencies: {dependency-type: development, update-types: [minor, patch]}
